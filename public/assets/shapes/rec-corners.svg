@@ -1,0 +1,17 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="560.001" height="132.321" viewBox="0 0 560.001 132.321" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="[block] bg">
+<path id="Polygon 2" d="M0 66.6604V0H66.268L0 66.6604Z" fill="#2BC69D"/>
+<path id="Polygon 1" d="M560.001 65.6604V132.321H493.733L560.001 65.6604Z" fill="#2BC69D"/>
+<foreignObject x="0" y="0" width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" style="backdrop-filter:blur(4px);clip-path:url(#bgblur_0_0_4_clip_path);height:100%;width:100%"></div></foreignObject><g id="promo" data-figma-bg-blur-radius="8">
+<rect x="9.00039" y="8.99979" width="542" height="114" fill="#202124"/>
+<rect x="9.00039" y="8.99979" width="542" height="114" stroke="url(#paint0_linear_0_4)" stroke-width="2"/>
+</g>
+</g>
+<defs>
+<clipPath id="bgblur_0_0_4_clip_path" transform="translate(0 0)"><rect x="9.00039" y="8.99979" width="542" height="114"/>
+</clipPath><linearGradient id="paint0_linear_0_4" x1="125.111" y1="-22.8433" x2="459.609" y2="179.301" gradientUnits="userSpaceOnUse">
+<stop stop-color="#2BC69D"/>
+<stop offset="1" stop-color="#1C8166"/>
+</linearGradient>
+</defs>
+</svg>
