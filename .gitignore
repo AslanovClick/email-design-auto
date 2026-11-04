@@ -8,3 +8,5 @@ dist
 !.env.example
 .claude/
 *.log
+n8n/out/
+.vitest/

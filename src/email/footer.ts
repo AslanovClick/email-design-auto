@@ -37,7 +37,7 @@ export function renderFooter(b: Block, doc: EmailDoc) {
       <p class="sig">${t.sincerely}<br>${esc(pick('manager', f.vip.manager))} ${t.vip}</p>
       <a class="mgr" href="mailto:${esc(email)}">${esc(email)}</a>
       <p class="sig">${esc(pick('hours', f.vip.hours))}</p>
-      <img class="safe" src="${ASSET('footer/safe-badge.png')}" width="258" alt="18+ · 100% safe and secure">
+      <img class="safe" data-plan="img" data-plan-name="badge" src="${ASSET('footer/safe-badge.png')}" width="258" alt="18+ · 100% safe and secure">
     </div>`;
   }
 
@@ -45,12 +45,13 @@ export function renderFooter(b: Block, doc: EmailDoc) {
   const showPayments = d.payments ?? f.payments;
   const showApps = d.apps ?? f.apps;
   const showOdds = d.oddsNote ?? f.oddsNote;
-  const btn = (icon: string, w: number, label: string, link: unknown) =>
-    `<a class="app" href="${esc(link || '#')}"><img src="${ASSET(`footer/${icon}.png`)}" width="${w}" alt=""><span>${label}</span></a>`;
+  // кнопки сторов — ссылки из полей (пустое — заглушка); в письме — две отдельные картинки со своими ссылками
+  const btn = (icon: string, w: number, label: string, link: unknown, alt: string) =>
+    `<a class="app" href="${esc(link || '#')}" data-plan="img" data-plan-name="${icon}" data-plan-alt="${alt}"><img src="${ASSET(`footer/${icon}.png`)}" width="${w}" alt=""><span>${label}</span></a>`;
   return `<div class="e-ft">
-    <a class="logo-a" href="${esc(d.logoLink || clientSite(doc.client))}"><img class="logo" src="${esc(clientLogo(doc.client, isLightBg(doc)))}" alt="${esc(c.name)}"></a>
-    ${showPayments ? `<img class="pay" src="${ASSET('footer/payments.png')}" width="399" alt="Skrill, Neteller, Maestro, Visa, Mastercard">` : ''}
-    ${showApps ? `<div class="apps"><b>${t.app}</b><div class="row">${btn('apple', 22, t.apple, d.appleLink)}<b class="amp">&amp;</b>${btn('android', 34, t.android, d.androidLink)}</div></div>` : ''}
+    <a class="logo-a" data-plan="img" data-plan-name="logo" href="${esc(d.logoLink || clientSite(doc.client))}"><img class="logo" src="${esc(clientLogo(doc.client, isLightBg(doc)))}" alt="${esc(c.name)}"></a>
+    ${showPayments ? `<img class="pay" data-plan="img" data-plan-name="payments" src="${ASSET('footer/payments.png')}" width="399" alt="Skrill, Neteller, Maestro, Visa, Mastercard">` : ''}
+    ${showApps ? `<div class="apps"><b>${t.app}</b><div class="row">${btn('apple', 22, t.apple, d.appleLink, 'Download on the App Store')}<b class="amp">&amp;</b>${btn('android', 34, t.android, d.androidLink, 'Get it on Google Play')}</div></div>` : ''}
     <div class="legal">
       ${showOdds ? `<p>${t.odds(esc(c.name))}</p>` : ''}
       <p><a href="mailto:${esc(support)}">${esc(support)}</a> ${t.chat}</p>

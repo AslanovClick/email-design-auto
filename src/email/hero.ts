@@ -1,6 +1,7 @@
 // Hero по компонентам Figma ([hero] Top Banner): картинка с игроками, поверх неё хедер
 // (лого клиента, дата, лига), гербы команд заходят на нижний край картинки или стоят строкой с VS.
 
+import { ZONE_KINDS, posOf, zonesOf, type DragKind, type HeroPos } from '@/model/heroZones';
 import { clientLogo, clientPreset, clientSite } from '@/model/presets';
 import type { Block, BlockData, EmailDoc } from '@/model/types';
 import { hexToRgb } from './theme';
@@ -34,19 +35,31 @@ export function renderDate(d: BlockData) {
 function leagueHtml(d: BlockData, doc: EmailDoc) {
   const logo = isLightBg(doc) && d.leagueLogoLight ? str(d, 'leagueLogoLight') : str(d, 'leagueLogo');
   return logo
-    ? `<span class="e-lg"><img src="${esc(logo)}" alt="${esc(d.league)}"></span>`
-    : `<span class="e-lg txt">${esc(d.league)}</span>`;
+    ? `<span class="e-lg" data-plan-zone=""><img src="${esc(logo)}" alt="${esc(d.league)}"></span>`
+    : `<span class="e-lg txt" data-plan-zone="">${esc(d.league)}</span>`;
 }
 
-// логотип всегда ссылка: своя или на сайт клиента
-const logoHtml = (doc: EmailDoc, d: BlockData) =>
-  `<a class="e-brand" href="${esc(d.logoLink || clientSite(doc.client))}"><img src="${esc(clientLogo(doc.client, isLightBg(doc)))}" alt="${esc(clientPreset(doc.client).name)}"></a>`;
+// логотип всегда ссылка: своя или на сайт клиента; в письме для рассылки лого и лига — зоны клика на картинке hero
+const logoHtml = (doc: EmailDoc, d: BlockData) => {
+  const href = esc(d.logoLink || clientSite(doc.client));
+  return `<a class="e-brand" href="${href}" data-plan-zone="${href}"><img src="${esc(clientLogo(doc.client, isLightBg(doc)))}" alt="${esc(clientPreset(doc.client).name)}"></a>`;
+};
+
+/**
+ * Элемент хедера, который можно сдвинуть мышью (только в самом hero, не в миниатюрах): метка data-drag
+ * для редактора и сдвиг translate — раскладку соседей он не трогает, а зона клика в письме встанет на новое место.
+ */
+function draggable(html: string, k: DragKind, pos?: HeroPos) {
+  if (!pos) return html;
+  const [dx, dy] = pos[k] ?? [0, 0];
+  return html.replace(/^<(\w+)/,`<$1 data-drag="${k}"${dx || dy ? ` style="translate:${dx}px ${dy}px"` : ''}`);
+}
 
 /** Хедер: в «3 элементах» дата строго по центру, лого и лига прижаты к краям. */
-export function headerRow(v: number, d: BlockData, doc: EmailDoc) {
-  const logo = logoHtml(doc, d);
-  const lg = leagueHtml(d, doc);
-  const date = renderDate(d);
+export function headerRow(v: number, d: BlockData, doc: EmailDoc, pos?: HeroPos) {
+  const logo = draggable(logoHtml(doc, d), 'logo', pos);
+  const lg = draggable(leagueHtml(d, doc), 'league', pos);
+  const date = draggable(renderDate(d), 'date', pos);
   switch (v) {
     case 1: return `<div class="e-head g3">${logo}<span></span><span class="end">${date}</span></div>`;
     case 2: return `<div class="e-head g3">${logo}</div>`;
@@ -77,18 +90,31 @@ export function heroTeams(b: Block) {
   return `<div class="e-tm under ${big ? 'big' : ''}">${col(t1, l1)}${col(t2, l2)}</div>`;
 }
 
+/**
+ * Зоны клика поверх картинки «без хедера»: лого и лига нарисованы на ней самой. В превью невидимы
+ * (рамки рисует редактор), в письме — ссылки на картинке hero: лого — своя ссылка или сайт, лига — заглушка.
+ */
+function zonesHtml(d: BlockData, doc: EmailDoc) {
+  const z = zonesOf(d);
+  return ZONE_KINDS.filter((k) => z[k]).map((k) => {
+    const [x, y, w, h] = z[k]!;
+    const href = k === 'logo' ? esc(d.logoLink || clientSite(doc.client)) : '';
+    return `<i class="e-zone" data-zone="${k}" data-plan-zone="${href}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"></i>`;
+  }).join('');
+}
+
 export function renderHero(b: Block, doc: EmailDoc) {
   const d = b.data;
-  const head = headerRow(Number(d.hv), d, doc);
+  const head = headerRow(Number(d.hv), d, doc, posOf(d));
   const teams = d.teamsOn ? heroTeams(b) : '';
   // без картинки hero = хедер (+ команды) в потоке письма
   if (!d.imageOn) {
-    return `<div class="e-hero flow">${head ? `<div class="e-hero-head">${head}</div>` : ''}${teams}</div>`;
+    return `<div class="e-hero flow" data-plan="hero">${head ? `<div class="e-hero-head">${head}</div>` : ''}${teams}</div>`;
   }
   // картинка задаёт высоту hero (ширина всегда 600)
   const pic = d.image
     ? `<img class="e-hero-pic" src="${esc(d.image)}" alt="${esc(d.alt)}" width="600">`
     : `<div class="e-hero-pic empty"><span>Картинка hero · 600×610<br>загружает дизайнер</span></div>`;
-  const overlay = head ? `<div class="e-hero-head">${head}</div>` : '';
-  return `<div class="e-hero ${d.teamsOn ? `t${b.v}` : ''}"><div class="e-hero-frame">${pic}${overlay}</div>${teams}</div>`;
+  const overlay = head ? `<div class="e-hero-head">${head}</div>` : zonesHtml(d, doc);
+  return `<div class="e-hero ${d.teamsOn ? `t${b.v}` : ''}" data-plan="hero"><div class="e-hero-frame">${pic}${overlay}</div>${teams}</div>`;
 }

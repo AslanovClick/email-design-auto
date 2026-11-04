@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { clientName, headerRow, heroTeams, renderDate } from '@/email/blocks';
 import { renderBlock } from '@/email/render';
 import { FIELDS, catalogOf } from '@/model/catalog';
+import { DEFAULT_ZONES, posOf, posValue, zonesOf, zonesValue, type ZoneKind } from '@/model/heroZones';
 import { DATE_STYLES, HERO_HEADERS, HERO_PRESETS, SAMPLE_HERO, clientSite } from '@/model/presets';
 import type { Block, EmailDoc } from '@/model/types';
 import { useEditor } from '@/store/editor';
@@ -25,6 +26,31 @@ function Strip({ children, active }: { children: ReactNode; active: number }) {
     if (strip && on) strip.scrollLeft = on.offsetLeft - strip.clientWidth / 2 + on.clientWidth / 2;
   }, [active]);
   return <div className="var-strip" ref={ref}>{children}</div>;
+}
+
+/** «Без хедера»: лого и лига нарисованы на картинке — где они, говорят зоны клика (рамки на превью). */
+function ZoneFields({ doc, block }: { doc: EmailDoc; block: Block }) {
+  const { setData } = useEditor.getState();
+  const z = zonesOf(block.data);
+  const toggle = (k: ZoneKind, on: boolean) => {
+    const next = { ...z };
+    if (on) next[k] = z[k] ?? DEFAULT_ZONES[k];
+    else delete next[k];
+    setData(block.id, { zones: zonesValue(next) });
+  };
+  const logoLink = FIELDS.hero.find((f) => f.key === 'logoLink')!;
+  return (
+    <>
+      <div className="subhead">Зоны клика на картинке</div>
+      <Toggle label="Логотип клиента — ссылка" checked={!!z.logo} onChange={(on) => toggle('logo', on)} />
+      {z.logo && <FieldInput block={block} f={{ ...logoLink, kind: 'text', placeholder: clientSite(doc.client) }} />}
+      <Toggle label="Логотип лиги — ссылка-заглушка" checked={!!z.league} onChange={(on) => toggle('league', on)} />
+      <div className="hint" style={{ margin: 0 }}>
+        Логотипы нарисованы на картинке, поэтому в письме на их месте — прозрачные ссылки. Рамки зон видны на превью
+        у выделенного hero: перетащите рамку на логотип, за уголок — размер.
+      </div>
+    </>
+  );
 }
 
 export function HeroSections({ doc, block }: { doc: EmailDoc; block: Block }) {
@@ -90,8 +116,19 @@ export function HeroSections({ doc, block }: { doc: EmailDoc; block: Block }) {
           </>
         )}
         {hv !== 7 && <FieldInput block={block} f={{ ...F.logoLink, kind: 'text', placeholder: clientSite(doc.client) }} />}
+        {hv === 7 && !!d.imageOn && <ZoneFields doc={doc} block={block} />}
         {WITH_LEAGUE.includes(hv) && <FieldInput block={block} f={F.league} />}
         <div className="hint" style={{ margin: 0 }}>Логотип «{clientName(doc)}» подставляется сам: светлая версия на тёмном фоне, тёмная — на светлом.</div>
+        {hv !== 7 && (
+          <>
+            <div className="hint" style={{ margin: '8px 0 0' }}>Лого, дату и лигу можно перетащить мышью на превью выделенного hero. В письме лого и лига — ссылки на своём месте.</div>
+            {Object.keys(posOf(d)).length > 0 && (
+              <button type="button" className="btn sm block" style={{ marginTop: 8 }} onClick={() => setData(block.id, { pos: posValue({}) })}>
+                Вернуть лого, дату и лигу на места
+              </button>
+            )}
+          </>
+        )}
       </Section>
 
       <Section id="hero-img" title={<><span className="part-n">2</span>Картинка</>} meta={!d.imageOn ? 'скрыта' : d.image ? 'загружена' : 'не загружена'}>

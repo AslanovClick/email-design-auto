@@ -20,7 +20,7 @@ export function renderOdds(b: Block) {
     ? `<span class="${cls}"><b>${esc(v)}</b><small>${esc(l)}</small></span>`
     : `<span class="${cls}"><small>${esc(l)}</small><b>${esc(v)}</b></span>`;
   const inline = ([l, v]: string[]) => `<span class="c"><small>${esc(l)}</small> <b>${esc(v)}</b></span>`;
-  const bar = '<i class="sep"></i>';
+  const bar = '<i class="sep" data-plan="divider"></i>';
   let inner = '';
   switch (b.v) {
     case 1: case 6: inner = three.map((c) => cell('col', c)).join(bar); break;
@@ -30,15 +30,16 @@ export function renderOdds(b: Block) {
     case 5: inner = three.map(inline).join(''); break;
     case 8: inner = two.map(inline).join(bar); break;
     case 9: inner = three.map((c) => cell('col', c, true)).join(''); break;
-    case 10: inner = `${inline(two[0])}<span class="ico">${ODDS_ICON}</span>${inline(two[1])}`; break;
+    case 10: inner = `${inline(two[0])}<span class="ico" data-plan="img" data-plan-name="icon">${ODDS_ICON}</span>${inline(two[1])}`; break;
     case 11:
-      inner = `<span class="row lbl">${three.map(([l]) => `<span>${esc(l)}</span>`).join('')}</span>`
-        + `<span class="row num">${three.map(([, v]) => `<b>${esc(v)}</b>`).join('')}</span>`;
+      inner = `<span class="row lbl" data-plan="cols">${three.map(([l]) => `<span>${esc(l)}</span>`).join('')}</span>`
+        + `<span class="row num" data-plan="cols">${three.map(([, v]) => `<b>${esc(v)}</b>`).join('')}</span>`;
       break;
     default: inner = three.map(inline).join('');
   }
   const framed = [1, 4, 6, 7, 10, 11].includes(b.v);
-  return `<div class="e-pad"><div class="e-od o${b.v} ${framed ? 'e-frame' : ''}">${inner}</div></div>`;
+  // ряд коэффициентов в письме — равные колонки (у «Двух строк» колонки — каждая строка)
+  return `<div class="e-pad"><div class="e-od o${b.v} ${framed ? 'e-frame' : ''}"${b.v === 11 ? '' : ' data-plan="cols"'}>${inner}</div></div>`;
 }
 
 /**
@@ -46,7 +47,7 @@ export function renderOdds(b: Block) {
  * Обводка блока ложится на кнопку только у самого блока «Кнопка» (inner = false).
  */
 export function renderCtaButton(kind: number, text: string, link: string, small = false, caps = false, inner = false) {
-  return `<a class="e-cta k${kind}${inner ? '' : ' e-frame'}${small ? ' sm' : ''}${caps ? ' caps' : ''}" href="${esc(link || '#')}"><span>${esc(text)}</span></a>`;
+  return `<a class="e-cta k${kind}${inner ? '' : ' e-frame'}${small ? ' sm' : ''}${caps ? ' caps' : ''}" href="${esc(link || '#')}" data-plan="btn"><span>${esc(text)}</span></a>`;
 }
 
 export function renderCta(b: Block) {
@@ -65,7 +66,7 @@ export function renderSeparator(b: Block) {
     `<i class="ln"></i>${dia}<i class="ln"></i>`,
     '<i class="hook l"></i><i class="bar"></i><i class="hook r"></i>',
   ][k] ?? '<i class="glow"></i>';
-  return `<div class="e-sp s${k}">${inner}</div>`;
+  return `<div class="e-sp s${k}" data-plan="img" data-plan-name="sep">${inner}</div>`;
 }
 
 /** Абзацы хранятся одной строкой через пустую строку. */

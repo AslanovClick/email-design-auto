@@ -1,0 +1,77 @@
+{
+  "name": "Min",
+  "fileName": "Test",
+  "fileKey": null,
+  "width": 600,
+  "height": 1000,
+  "bgColor": "#0b171b",
+  "frameFills": [],
+  "colors": [],
+  "texts": [],
+  "blocks": [],
+  "imageNodes": [],
+  "mainAutoLayout": null,
+  "frameId": "e1",
+  "plan": {
+    "v": 5,
+    "width": 600,
+    "height": 1000,
+    "color": "#0b171b",
+    "bg": null,
+    "folder": "cm/test/min-e1",
+    "title": "Mail",
+    "assets": [],
+    "body": {
+      "k": "stack", "id": "body", "x": 0, "y": 0, "w": 600, "h": 1000,
+      "items": [
+        { "k": "hero", "id": "h:1", "x": 0, "y": 0, "w": 600, "h": 300, "file": "main-aaaaaa.jpg",
+          "zones": [{ "x": 24, "y": 20, "w": 120, "h": 40, "ln": "https://20bet.com" }], "content": [] },
+        { "k": "text", "id": "t:1", "x": 24, "y": 320, "w": 552, "h": 42,
+          "st": { "ff": "Verdana, Arial, Helvetica, sans-serif", "fs": 14, "fw": 400, "c": "#fdfdfd", "lh": "1.5", "tt": null, "ls": null, "dec": null },
+          "runs": [{ "t": "Привет, {{name}}! ", "d": {} }, { "t": "Ставь", "d": { "fw": 700, "c": "#22b33a" }, "ln": "https://www.google.com/" }],
+          "ta": "center", "wrap": true, "lines": 1 },
+        { "k": "img", "id": "i:1", "x": 100, "y": 380, "w": 400, "h": 120, "file": "banner-bbbbbb.png", "alt": "" },
+        { "k": "btn", "id": "b:1", "x": 150, "y": 520, "w": 300, "h": 60, "ln": "https://www.google.com/", "pad": [16, 20],
+          "text": { "st": { "ff": "Verdana, Arial, Helvetica, sans-serif", "fs": 18, "fw": 700, "c": "#fdfdfd", "lh": "1.2", "tt": "uppercase", "ls": null, "dec": null },
+            "runs": [{ "t": "Bet Now", "d": {} }] },
+          "bg": "btn-cccccc.png" },
+        { "k": "box", "id": "x:1", "x": 24, "y": 600, "w": 552, "h": 80, "fill": "#14262b",
+          "border": { "w": [4, 4, 4, 4], "c": "#22b33a" }, "r": 12,
+          "content": { "k": "text", "id": "x:2", "x": 48, "y": 624, "w": 504, "h": 32,
+            "st": { "ff": "Verdana, Arial, Helvetica, sans-serif", "fs": 16, "fw": 400, "c": "#fdfdfd", "lh": "1.2", "tt": null, "ls": null, "dec": null },
+            "runs": [{ "t": "В рамке", "d": {} }], "ta": "left", "wrap": true, "lines": 1 } },
+        { "k": "line", "id": "l:1", "x": 24, "y": 700, "w": 552, "h": 2, "c": "#22b33a" },
+        { "k": "row", "id": "r:1", "x": 24, "y": 720, "w": 300, "h": 24, "va": "middle",
+          "cells": [
+            { "k": "img", "id": "r:2", "x": 24, "y": 720, "w": 24, "h": 24, "file": "icon-dddddd.png", "alt": "" },
+            { "k": "text", "id": "r:3", "x": 56, "y": 723, "w": 200, "h": 18,
+              "st": { "ff": "Verdana, Arial, Helvetica, sans-serif", "fs": 14, "fw": 400, "c": "#fdfdfd", "lh": "1.2", "tt": null, "ls": null, "dec": null },
+              "runs": [{ "t": "Пункт списка", "d": {} }], "ta": "left", "wrap": false, "lines": 1 }
+          ] },
+        { "k": "cols", "id": "c:1", "x": 24, "y": 760, "w": 552, "h": 60,
+          "cells": [
+            { "k": "text", "id": "c:2", "x": 60, "y": 780, "w": 40, "h": 20,
+              "st": { "ff": "Verdana, Arial, Helvetica, sans-serif", "fs": 16, "fw": 700, "c": "#fdfdfd", "lh": "1.2", "tt": null, "ls": null, "dec": null },
+              "runs": [{ "t": "1.85", "d": {} }], "ta": "center", "wrap": false, "lines": 1 },
+            { "k": "text", "id": "c:3", "x": 280, "y": 780, "w": 40, "h": 20,
+              "st": { "ff": "Verdana, Arial, Helvetica, sans-serif", "fs": 16, "fw": 700, "c": "#fdfdfd", "lh": "1.2", "tt": null, "ls": null, "dec": null },
+              "runs": [{ "t": "3.40", "d": {} }], "ta": "center", "wrap": false, "lines": 1 },
+            { "k": "text", "id": "c:4", "x": 500, "y": 780, "w": 40, "h": 20,
+              "st": { "ff": "Verdana, Arial, Helvetica, sans-serif", "fs": 16, "fw": 700, "c": "#fdfdfd", "lh": "1.2", "tt": null, "ls": null, "dec": null },
+              "runs": [{ "t": "4.20", "d": {} }], "ta": "center", "wrap": false, "lines": 1 }
+          ],
+          "dividers": [
+            { "k": "line", "id": "c:5", "x": 208, "y": 770, "w": 1, "h": 40, "c": "#22b33a" },
+            { "k": "line", "id": "c:6", "x": 392, "y": 770, "w": 1, "h": 40, "c": "#22b33a" }
+          ] }
+      ]
+    },
+    "warnings": []
+  },
+  "tree": null,
+  "pluginVersion": "5.0",
+  "referenceImage": null,
+  "recipientEmail": "",
+  "source": "clickable-mail",
+  "preheader": ""
+}

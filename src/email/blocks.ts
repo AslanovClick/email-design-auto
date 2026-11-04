@@ -1,5 +1,5 @@
-// Рендер блоков в HTML. Сейчас это схематичная разметка для отладки интерфейса;
-// на этапе переноса компонентов из Figma каждый рендер заменится на табличную (MJML) вёрстку.
+// Рендер блоков в HTML — разметка превью. Она же источник для планировщика экспорта (src/email/plan):
+// атрибуты data-plan говорят ему, что за элемент. HTML для рассылки собирает n8n (n8n/clickable-mail.json).
 
 import { clientPreset } from '@/model/presets';
 import type { Block, BlockData, BlockType, EmailDoc } from '@/model/types';

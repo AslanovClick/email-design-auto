@@ -1,9 +1,10 @@
-// Экспорт письма: HTML (картинки внутри файла) или ZIP (HTML + папка images/).
-// Картинки из ZIP потом передаются тем, кто занимается хостингом, и ссылки меняются на их адреса.
-// В письме два вида картинок: загруженные дизайнером (data URL) и пресеты из Figma (/assets/...).
+// Экспорт письма для рассылки. HTML собирает n8n (n8n/clickable-mail.json) генератором плагина Figma,
+// картинки уже лежат на demo.promo: HTML и Код ссылаются на них. ZIP — тот же HTML с картинками рядом
+// (папка images/) для сервисов рассылки, которые сами хостят картинки.
 
 import type { EmailDoc } from '@/model/types';
-import { renderDocument } from './render';
+import type { MailResult } from '@/store/mailBuild';
+import type { Payload } from './plan/types';
 
 const slug = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9а-яё]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'email';
@@ -16,62 +17,33 @@ function download(blob: Blob, name: string) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
-const DATA_URI = /data:image\/[a-z+]+;base64,[A-Za-z0-9+/=]+/g;
-const ASSET_URL = /\/assets\/[a-z0-9/_.-]+\.(?:png|jpe?g|gif|webp|svg)/gi;
-
-const blobToDataUrl = (b: Blob) => new Promise<string>((res, rej) => {
-  const r = new FileReader();
-  r.onload = () => res(String(r.result));
-  r.onerror = () => rej(r.error);
-  r.readAsDataURL(b);
-});
-
-/** Один файл: пресеты из /assets встраиваем внутрь, чтобы HTML открывался где угодно. */
-export async function exportHtml(doc: EmailDoc) {
-  let html = renderDocument(doc);
-  for (const url of new Set(html.match(ASSET_URL) ?? [])) {
-    const data = await blobToDataUrl(await (await fetch(url)).blob());
-    html = html.split(url).join(data);
-  }
-  download(new Blob([html], { type: 'text/html' }), `${slug(doc.name)}.html`);
+/** Ссылки на картинки хостинга → images/<файл>. */
+export function localHtml(r: Pick<MailResult, 'html' | 'urls'>): string {
+  let html = r.html;
+  for (const [file, url] of Object.entries(r.urls)) html = html.split(url).join(`images/${file}`);
+  return html;
 }
 
-/** Код в буфер: пресеты ссылаются на этот сервер, загруженные картинки — внутри HTML. */
-export async function copyHtml(doc: EmailDoc) {
-  const html = renderDocument(doc).replace(ASSET_URL, (u) => location.origin + u);
-  await navigator.clipboard.writeText(html);
-}
-
-const EXT: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'image/svg+xml': 'svg' };
-
-export async function exportZip(doc: EmailDoc) {
+/** ZIP: index.html + images/ — те же файлы, что ушли в n8n (из памяти, не с сервера). */
+export async function exportZip(doc: EmailDoc, r: MailResult): Promise<number> {
   // JSZip нужен только при экспорте — грузим отдельным чанком
   const { default: JSZip } = await import('jszip');
-  let html = renderDocument(doc);
   const zip = new JSZip();
-  const uploads = [...new Set(html.match(DATA_URI) ?? [])];
-  uploads.forEach((uri, i) => {
-    const mime = uri.slice(5, uri.indexOf(';'));
-    const name = `images/image-${String(i + 1).padStart(2, '0')}.${EXT[mime] ?? 'png'}`;
-    zip.file(name, uri.slice(uri.indexOf(',') + 1), { base64: true });
-    html = html.split(uri).join(name);
-  });
-  const assets = [...new Set(html.match(ASSET_URL) ?? [])];
-  for (const url of assets) {
-    // /assets/teams/arsenal.png → images/teams-arsenal.png
-    const name = `images/${url.replace('/assets/', '').replace(/\//g, '-')}`;
-    zip.file(name, await (await fetch(url)).blob());
-    html = html.split(url).join(name);
-  }
-  zip.file('index.html', html);
+  zip.file('index.html', localHtml(r));
+  for (const [file, blob] of r.files) zip.file(`images/${file}`, blob);
   download(await zip.generateAsync({ type: 'blob' }), `${slug(doc.name)}.zip`);
-  return uploads.length + assets.length;
+  return r.files.size;
 }
 
-/** Для рассылки: таблицы с инлайн-стилями + картинки (см. mailExport.ts). Модуль тяжёлый — грузим по требованию. */
-export async function exportMailZip(doc: EmailDoc) {
-  const { buildMailZip } = await import('./mailExport');
-  const r = await buildMailZip(doc);
-  download(r.zip, `${slug(doc.name)}-mail.zip`);
-  return r;
+export function exportHtml(doc: EmailDoc, r: MailResult) {
+  download(new Blob([r.html], { type: 'text/html' }), `${slug(doc.name)}.html`);
+}
+
+export async function copyHtml(r: MailResult) {
+  await navigator.clipboard.writeText(r.html);
+}
+
+/** Ровно то, что уходит на вебхук (картинки — base64): для локального прогона n8n/tools/run-html-gen.ts. */
+export function downloadPayload(doc: EmailDoc, p: Payload) {
+  download(new Blob([JSON.stringify(p, null, 2)], { type: 'application/json' }), `${slug(doc.name)}.json`);
 }

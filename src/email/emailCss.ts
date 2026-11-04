@@ -54,6 +54,7 @@ export const EMAIL_CSS = `
 .em .e-hero-pic { display: block; width: 100%; height: auto; }
 .em .e-hero-pic.empty { height: 610px; background: repeating-linear-gradient(45deg, rgba(255,255,255,.08) 0 12px, rgba(255,255,255,.03) 12px 24px); display: grid; place-items: center; text-align: center; color: rgba(255,255,255,.5); font: 500 12px/1.6 monospace; }
 .em .e-hero-head { position: absolute; left: 0; right: 0; top: 0; padding: 18px 24px; z-index: 2; }
+.em .e-zone { position: absolute; display: block; z-index: 2; }
 .em .e-hero.flow .e-hero-head { position: static; }
 .em .e-head { min-height: 56px; align-items: center; }
 .em .e-head.g3 { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; }
