@@ -9,6 +9,8 @@ import { isLightBg } from './hero';
 
 const esc = (s: unknown) =>
   String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+/** Текст с выделением: /так/ — жирно и цветом акцента. Слеши без пробелов внутри у краёв, «EUR / USD» не трогаем. */
+export const withAccent = (s: unknown) => esc(s).replace(/\/(?=\S)([^/\n]*?\S)\//g, '<b class="hl">$1</b>');
 const split = (s: unknown) => String(s ?? '').split('/').map((x) => x.trim());
 const brand = (s: unknown, doc: EmailDoc) => esc(String(s ?? '').replace(/\{\{brand\}\}/g, clientPreset(doc.client).name));
 
@@ -23,7 +25,7 @@ export function renderRecodds(b: Block, doc: EmailDoc) {
   const body = inline
     ? `<p class="pk">${esc(d.pick)}</p><p class="cf">с коэффициентом <span>${esc(d.coef)}</span></p>${b.v !== 5 && d.suffix ? `<p class="pk">${brand(d.suffix, doc)}</p>` : ''}`
     : `<p class="pk">${esc(d.pick)}</p><p class="big">${esc(d.coef)}</p>`;
-  const card = `<a class="e-rc r${b.v} e-frame" href="${esc(d.link || '#')}">${body}</a>`;
+  const card = `<div class="e-rc r${b.v} e-frame">${body}</div>`;
   // «Уголки»: треугольники акцента выглядывают из-под карточки по диагонали
   return `<div class="e-pad">${b.v === 6 ? `<div class="rc-corners">${card}</div>` : card}</div>`;
 }
@@ -83,7 +85,7 @@ export function renderContent(b: Block) {
         `<div class="it">${imgOr(it.image, 'pic', it.title)}<div><b>${esc(it.title)}</b><span>${esc(it.text)}</span></div></div>`).join('')}</div></div>`;
     case 3:
       return `<div class="e-pad"><div class="e-ct rows c3">${withPics(d, parseItems(d.steps, STEP_ITEMS)).map((it) =>
-        `<div class="it">${imgOr(it.image, 'pic')}<span>${esc(it.text)}</span></div>`).join('')}</div></div>`;
+        `<div class="it">${imgOr(it.image, 'pic')}<span>${withAccent(it.text)}</span></div>`).join('')}</div></div>`;
     case 8:
       // без картинки карточка просто без неё — заглушка тут только мешает
       return `<div class="e-pad"><div class="e-ct c8${d.image ? '' : ' noimg'}"><div class="card e-frame">${d.image ? `<img class="pic" src="${esc(d.image)}" alt="${esc(d.alt)}">` : ''}

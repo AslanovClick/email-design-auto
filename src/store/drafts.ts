@@ -36,3 +36,11 @@ export async function deleteDraft(id: string) {
   const list = ((await get<DraftMeta[]>(INDEX)) ?? []).filter((d) => d.id !== id);
   await set(INDEX, list);
 }
+
+/** Удалить несколько черновиков за раз (индекс переписывается один раз). */
+export async function deleteDrafts(ids: string[]) {
+  const drop = new Set(ids);
+  await Promise.all(ids.map((id) => del(key(id))));
+  const list = ((await get<DraftMeta[]>(INDEX)) ?? []).filter((d) => !drop.has(d.id));
+  await set(INDEX, list);
+}

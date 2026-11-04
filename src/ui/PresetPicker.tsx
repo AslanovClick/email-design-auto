@@ -2,7 +2,7 @@
 
 import * as Popover from '@radix-ui/react-popover';
 import clsx from 'clsx';
-import { Plus, Search, Upload } from 'lucide-react';
+import { Pencil, Plus, Search, Upload } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { ImagePreset } from '@/model/presets';
 import { pickImage } from './files';
@@ -28,8 +28,10 @@ export function PresetPicker({ presets, image, name, square, title, onPick }: Pr
   return (
     <Popover.Root open={open} onOpenChange={(o) => { setOpen(o); if (!o) setQ(''); }}>
       <Popover.Trigger asChild>
-        <button type="button" className={clsx('crest-up', square && 'sq', image && 'has')} aria-label={title} title={title}>
-          {image ? <img src={image} alt={name} /> : <Plus size={15} />}
+        <button type="button" className={clsx('crest-up', square && 'sq', image && 'has')} aria-label={title}
+          title={image ? `${title}: заменить` : `${title}: выбрать`}>
+          <span className="crest-pic">{image ? <img src={image} alt={name} /> : <Plus size={15} />}</span>
+          {image && <span className="crest-edit" aria-hidden><Pencil size={9} strokeWidth={2.5} /></span>}
         </button>
       </Popover.Trigger>
       <Popover.Portal>

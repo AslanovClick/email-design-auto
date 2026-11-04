@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { clientName } from '@/email/blocks';
 import { renderBlock } from '@/email/render';
 import { effectiveBorder, hasBorder } from '@/email/theme';
-import { BTN_RADIUS, BTN_RADIUS_BY_VARIANT, FIELDS, catalogOf, fieldsFor, isRequired, isSingle, variantBorder } from '@/model/catalog';
+import { BTN_RADIUS, BTN_RADIUS_BY_VARIANT, FIELDS, btnRoundable, catalogOf, fieldsFor, isRequired, isSingle, variantBorder, variantRadius } from '@/model/catalog';
 import { FACT_ROWS, FACTS_PRESETS, factsPresetOf, factsSep, hasFactsSep } from '@/model/facts';
 import { itemsValue, parseItems } from '@/model/items';
 import { clientPreset, clientSite } from '@/model/presets';
@@ -168,7 +168,7 @@ function VariantSection({ doc, block }: { doc: EmailDoc; block: Block }) {
 }
 
 function FooterSections({ doc, block }: { doc: EmailDoc; block: Block }) {
-  const { setVariant, setData } = useEditor.getState();
+  const { setData } = useEditor.getState();
   const f = clientPreset(doc.client).footer;
   const F = Object.fromEntries(FIELDS.footer.map((x) => [x.key, x]));
   const vip = block.v === 1;
@@ -177,7 +177,6 @@ function FooterSections({ doc, block }: { doc: EmailDoc; block: Block }) {
     <>
       <VariantSection doc={doc} block={block} />
       <Section id="content" title="Контент" meta={clientName(doc)}>
-        <FieldInput block={block} f={{ ...F.logoLink, kind: 'text', placeholder: clientSite(doc.client) }} />
         {vip ? (
           <>
             <FieldInput block={block} f={{ ...F.manager, placeholder: f.vip.manager }} />
@@ -190,13 +189,17 @@ function FooterSections({ doc, block }: { doc: EmailDoc; block: Block }) {
             <Toggle label="Кнопки приложений" checked={flag('apps')} onChange={(v) => setData(block.id, { apps: v })} />
             <Toggle label="Строка про коэффициенты" checked={flag('oddsNote')} onChange={(v) => setData(block.id, { oddsNote: v })} />
             <FieldInput block={block} f={{ ...F.supportEmail, placeholder: f.supportEmail }} />
-            <FieldInput block={block} f={F.unsub} />
           </>
         )}
-        <div className="hint" style={{ margin: 0 }}>
-          Логотип, тексты и фирменный цвет ссылок — от клиента «{clientName(doc)}». Пустые поля берут значения клиента.
-          {!vip && <> <button type="button" className="link-btn" onClick={() => setVariant(block.id, 1)}>VIP-версия</button></>}
-        </div>
+        <div className="subhead">Ссылки</div>
+        <FieldInput block={block} f={{ ...F.logoLink, kind: 'text', placeholder: clientSite(doc.client) }} />
+        {!vip && <FieldInput block={block} f={F.unsub} />}
+        {!vip && flag('apps') && (
+          <div className="field-row">
+            <FieldInput block={block} f={F.appleLink} />
+            <FieldInput block={block} f={F.androidLink} />
+          </div>
+        )}
       </Section>
     </>
   );
@@ -217,6 +220,11 @@ function StyleSection({ doc, block }: { doc: EmailDoc; block: Block }) {
   const btnDefault = BTN_RADIUS_BY_VARIANT[block.v] ?? BTN_RADIUS;
   // обводка варианта (из Figma) показывается как действующая — её можно поменять или убрать
   const fromVariant = variantBorder(block.type, block.v);
+  // у части вариантов скругление своё из Figma (пилюля, лепесток…) — показываем то, что реально стоит в письме
+  const radVariant = isBtn ? null : variantRadius(block.type, block.v);
+  const btnInherit = t.btnRadius == null;
+  const radInherit = isBtn ? (btnInherit ? btnDefault : t.btnRadius!) : (radVariant ?? t.radius);
+  const radFromVariant = isBtn ? btnInherit : radVariant != null;
   const width = effectiveBorder(block);
   const bordered = hasBorder(block);
   const ownBorder = st.borderW != null || st.border != null;
@@ -249,14 +257,23 @@ function StyleSection({ doc, block }: { doc: EmailDoc; block: Block }) {
         onReset={() => unsetStyle(block.id, ['border', 'borderW'])} resetLabel={fromVariant ? 'Вернуть как у варианта' : 'Убрать обводку'} />
       <BorderControl value={width} onChange={(borderW) => setStyle(block.id, { borderW })} />
       {fromVariant && st.borderW == null && <div className="hint" style={{ marginTop: -4 }}>Обводка задана вариантом — её можно поменять или выставить 0, чтобы убрать.</div>}
-      <div className="subhead">Скругление</div>
-      <RadiusControl label={isBtn ? 'Скругление кнопки' : 'Скругление'} value={st.radius ?? (isBtn ? btnDefault : t.radius)}
-        onChange={(radius) => setStyle(block.id, { radius })} />
-      <div className="hint" style={{ margin: 0 }}>
-        {st.radius != null
-          ? <>Своё скругление. <button type="button" className="link-btn" onClick={() => unsetStyle(block.id, ['radius'])}>{isBtn ? 'Вернуть как у варианта' : 'Вернуть как в макете'}</button></>
-          : isBtn ? 'Кнопки не наследуют скругление макета — у каждого варианта своё.' : 'Как в макете.'}
-      </div>
+      {isBtn && !btnRoundable(block.v) ? (
+        <>
+          <div className="subhead">Скругление</div>
+          <div className="hint" style={{ margin: 0 }}>У этой кнопки фигурная форма из Figma — скругление к ней не применяется.</div>
+        </>
+      ) : (
+        <>
+          <RadiusControl label={isBtn ? 'Скругление кнопки' : 'Скругление'} value={st.radius ?? radInherit}
+            onChange={(radius) => setStyle(block.id, { radius })} />
+          <div className="hint" style={{ margin: 0 }}>
+            {st.radius != null
+              ? <>Своё скругление. <button type="button" className="link-btn" onClick={() => unsetStyle(block.id, ['radius'])}>{radFromVariant ? 'Вернуть как у варианта' : 'Вернуть как в макете'}</button></>
+              : isBtn && btnInherit ? 'Как у варианта кнопки. Общее скругление включается на вкладке «Макет».'
+                : radFromVariant ? `Скругление задано вариантом «${catalogOf(block.type).variants[block.v]}». Его можно поменять.` : 'Как в макете.'}
+          </div>
+        </>
+      )}
       </>}
     </>
   );

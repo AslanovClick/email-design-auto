@@ -1,7 +1,9 @@
 import {
   DndContext, DragOverlay, PointerSensor, closestCenter, useSensor, useSensors,
-  type DragEndEvent, type DragMoveEvent, type DragStartEvent,
+  type DragEndEvent, type DragStartEvent, type Modifier,
 } from '@dnd-kit/core';
+import clsx from 'clsx';
+import { Move } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { loadDraft, saveDraft } from '@/store/drafts';
@@ -55,16 +57,42 @@ export function EditorPage() {
   const [active, setActive] = useState<DragData | null>(null);
   const setUi = useUi((s) => s.set);
 
+  // Позицию курсора берём из самих событий мыши, а не из delta dnd-kit: delta включает прокрутку холста,
+  // и после прокрутки (колесом или автопрокруткой у края) «курсор» уезжал — блок вставал не туда, а холст убегал вверх.
+  const track = useRef<((e: PointerEvent) => void) | null>(null);
+  const stopTracking = () => {
+    if (track.current) window.removeEventListener('pointermove', track.current, true);
+    track.current = null;
+    dropBridge.pointer = null;
+    dropBridge.origin = null;
+  };
+  useEffect(() => stopTracking, []);
+
+  // страница редактора не прокручивается целиком (у панелей и холста свой скролл); если её всё же сдвинули
+  // программно (фокус, перетаскивание), возвращаем на место — иначе интерфейс «уезжает» вверх
+  useEffect(() => {
+    const fix = () => { const el = document.scrollingElement; if (el && (el.scrollTop || el.scrollLeft)) el.scrollTo(0, 0); };
+    window.addEventListener('scroll', fix);
+    return () => window.removeEventListener('scroll', fix);
+  }, []);
+
   const onStart = (e: DragStartEvent) => {
     const data = e.active.data.current as DragData;
     setActive(data);
-    if (data.kind !== 'layer') setUi({ dragging: true, dropAt: null });
-  };
-  const onMove = (e: DragMoveEvent) => {
-    const data = e.active.data.current as DragData;
     if (data.kind === 'layer') return;
-    const start = e.activatorEvent as PointerEvent;
-    setUi({ dropAt: dropBridge.indexAt(start.clientX + e.delta.x, start.clientY + e.delta.y) });
+    const a = e.activatorEvent as PointerEvent;
+    // rect.initial к этому моменту ещё не измерен — берём сам перетаскиваемый элемент (у него есть атрибуты dnd-kit)
+    const r0 = ((a.target as Element | null)?.closest?.('[aria-roledescription="draggable"]') ?? null)?.getBoundingClientRect() ?? null;
+    setUi({ dragging: true, dropAt: null, drag: { id: data.kind === 'move' ? data.id : null, label: data.label } });
+    stopTracking();
+    dropBridge.pointer = { x: a.clientX, y: a.clientY };
+    dropBridge.origin = r0 ? { x: r0.left, y: r0.top } : { x: a.clientX, y: a.clientY };
+    track.current = (ev: PointerEvent) => {
+      dropBridge.pointer = { x: ev.clientX, y: ev.clientY };
+      const dropAt = dropBridge.indexAt(ev.clientX, ev.clientY);
+      if (dropAt !== useUi.getState().dropAt) setUi({ dropAt });
+    };
+    window.addEventListener('pointermove', track.current, true);
   };
   const onEnd = (e: DragEndEvent) => {
     const data = e.active.data.current as DragData;
@@ -81,13 +109,19 @@ export function EditorPage() {
     }
     onCancel();
   };
-  const onCancel = () => { setActive(null); setUi({ dragging: false, dropAt: null, insertAt: null }); };
+  const onCancel = () => {
+    stopTracking();
+    setActive(null);
+    setUi({ dragging: false, dropAt: null, insertAt: null, drag: null });
+  };
 
   if (!doc || doc.id !== id) return <div className="editor" />;
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter}
-      onDragStart={onStart} onDragMove={onMove} onDragEnd={onEnd} onDragCancel={onCancel}>
+      // холст докручивается сам (см. Canvas); страницу целиком не прокручиваем никогда
+      autoScroll={{ canScroll: (el) => !(el as HTMLElement).classList?.contains('stage') && el !== document.scrollingElement && el !== document.body }}
+      onDragStart={onStart} onDragEnd={onEnd} onDragCancel={onCancel}>
       <div className="editor">
         <TopBar saved={saved} />
         <div className="cols">
@@ -96,13 +130,33 @@ export function EditorPage() {
           <Inspector />
         </div>
       </div>
-      <DragOverlay dropAnimation={null}>
-        {active && active.kind !== 'layer' && (
-          <div className="drag-chip">
-            {active.kind === 'lib' && <TypeIcon type={active.type} size={13} />}{active.label}
-          </div>
-        )}
+      <DragOverlay dropAnimation={null} modifiers={[besideCursor]} className="drag-ov">
+        {active && active.kind !== 'layer' && <DragChip data={active} />}
       </DragOverlay>
     </DndContext>
+  );
+}
+
+/** Плашка — справа снизу от курсора: не закрывает линию вставки и не ловит колесо мыши (pointer-events: none). */
+const besideCursor: Modifier = ({ transform }) => {
+  const { pointer: p, origin: o } = dropBridge;
+  if (!p || !o) return transform;
+  return { ...transform, x: p.x - o.x + 16, y: p.y - o.y + 14 };
+};
+
+/** Плашка у курсора: что тащим и что будет, если отпустить. */
+function DragChip({ data }: { data: DragData }) {
+  const over = useUi((s) => s.dropAt != null);
+  const noop = useUi((s) => {
+    if (data.kind !== 'move' || s.dropAt == null) return false;
+    const i = useEditor.getState().doc?.blocks.findIndex((b) => b.id === data.id) ?? -1;
+    return s.dropAt === i || s.dropAt === i + 1;
+  });
+  return (
+    <div className={clsx('drag-chip', over && !noop && 'ok')}>
+      {data.kind === 'lib' ? <TypeIcon type={data.type} size={13} /> : <span className="type-ico"><Move size={13} /></span>}
+      <span>{data.label}</span>
+      <small>{!over ? 'наведите на письмо' : noop ? 'на прежнем месте' : data.kind === 'lib' ? 'отпустите — вставится' : 'отпустите — переместится'}</small>
+    </div>
   );
 }

@@ -1,8 +1,10 @@
+// Ссылки есть только там, где по ним кликают: лого в хедере и футере, кнопки, тексты и кнопки сторов в футере.
 // Каталог блоков, клиенты, шаблоны и пресеты. Структура повторяет Figma-файл Mail-Autocode
 // (секция New Components). Пока данные лежат в коде; позже придут с бэка.
 
 import { CLIENT_PRESETS, TEAM_LAYOUTS } from './presets';
 import { FACT_ROWS, FACTS_PRESETS } from './facts';
+import { FISH_GREETING, FISH_TEXT } from './fish';
 import { BONUS_ITEMS, CONTENT_ITEMS, STEP_ITEMS, itemsValue } from './items';
 import type {
   BlockType, CatalogGroup, CatalogItem, Client, FieldDef, FontName, PatternName, Theme,
@@ -66,8 +68,8 @@ const VARIANT_FIELDS: Partial<Record<BlockType, string[][]>> = {
     ['image', 'alt', 'title', 'big', 'sub'], ['image', 'alt', 'title', 'text', 'cta', 'link'], ['cards'],
   ],
   recodds: [
-    ['pick', 'coef', 'link'], ['pick', 'coef', 'link'], ['pick', 'coef', 'link'], ['pick', 'coef', 'suffix', 'link'],
-    ['pick', 'coef', 'link'], ['pick', 'coef', 'link'], ['pick', 'coef', 'suffix', 'link'],
+    ['pick', 'coef'], ['pick', 'coef'], ['pick', 'coef'], ['pick', 'coef', 'suffix'],
+    ['pick', 'coef'], ['pick', 'coef'], ['pick', 'coef', 'suffix'],
   ],
   league: [['league', 'date', 'title', 'sub', 'text', 'cta', 'link'], ['league', 'title', 'text', 'cta', 'link']],
   multibet: [['sports'], ['image', 'alt', 'sports']],
@@ -97,6 +99,13 @@ const VARIANT_RADIUS: Partial<Record<BlockType, (number | null)[]>> = {
 };
 export const variantRadius = (type: BlockType, v: number) => VARIANT_RADIUS[type]?.[v] ?? null;
 
+/** Значения по умолчанию, которые у варианта свои (поверх def из FIELDS). */
+const VARIANT_DEFAULTS: Partial<Record<BlockType, Record<number, Record<string, string>>>> = {
+  // рыбный текст — у «Обычного», «Малого заголовка» и «В рамке»; у примечания текст по смыслу
+  text: { 3: { text: 'Бонус действует 7 дней после активации. Подробные условия — на сайте в разделе «Промо».' } },
+};
+export const variantDefaults = (type: BlockType, v: number) => VARIANT_DEFAULTS[type]?.[v] ?? {};
+
 export function fieldsFor(type: BlockType, v: number) {
   const keys = VARIANT_FIELDS[type]?.[v];
   return keys ? FIELDS[type].filter((f) => keys.includes(f.key)) : FIELDS[type];
@@ -124,7 +133,7 @@ export const FIELDS: Record<BlockType, FieldDef[]> = {
     { key: 'title', label: 'Заголовок', kind: 'text', def: 'Бонус 100% на первый депозит' },
     { key: 'text', label: 'Текст', kind: 'textarea', def: 'Пополните счёт до конца недели и получите удвоенный баланс для ставок.' },
     { key: 'cta', label: 'Кнопка', kind: 'text', def: 'Забрать бонус' },
-    { key: 'link', label: 'Ссылка', kind: 'link', def: '' },
+    { key: 'link', label: 'Ссылка кнопки', kind: 'link', def: '' },
   ],
   inner: [
     { key: 'image', label: 'Картинка (дата — на ней)', kind: 'image', def: '' },
@@ -134,11 +143,11 @@ export const FIELDS: Record<BlockType, FieldDef[]> = {
     { key: 'vs', label: 'Между командами', kind: 'text', def: 'VS' },
   ],
   text: [
-    { key: 'title', label: 'Заголовок', kind: 'text', def: 'Привет, {{name}}!' },
+    { key: 'title', label: 'Заголовок', kind: 'text', def: FISH_GREETING },
     { key: 'kicker', label: 'Подзаголовок', kind: 'text', def: 'Новый сезон. Новый бонус' },
     { key: 'offer', label: 'Оффер', kind: 'text', def: '50% Free Bet до 200 EUR' },
     { key: 'note', label: 'Начало примечания', kind: 'text', def: 'Обратите внимание!' },
-    { key: 'text', label: 'Абзацы', kind: 'paragraphs', def: 'Главный матч тура уже в эти выходные. Мы подготовили повышенные коэффициенты и бонус на экспресс — успейте сделать ставку до стартового свистка.' },
+    { key: 'text', label: 'Абзацы', kind: 'paragraphs', def: FISH_TEXT },
   ],
   bullets: [
     { key: 'image', label: 'Картинка', kind: 'image', def: '' },
@@ -157,7 +166,7 @@ export const FIELDS: Record<BlockType, FieldDef[]> = {
         { title: 'Sports: free bet', big: '50%', sub: 'до 100 EUR / USD', text: 'Минимальный депозит для фрибета — 20 EUR / 20 USD.' },
       ]) },
     { key: 'cta', label: 'Текст кнопки', kind: 'text', def: 'Bet Now' },
-    { key: 'link', label: 'Ссылка', kind: 'link', def: '' },
+    { key: 'link', label: 'Ссылка кнопки', kind: 'link', def: '' },
   ],
   facts: [
     { key: 'title', label: 'Заголовок', kind: 'text', def: FACTS_PRESETS[0].title },
@@ -166,13 +175,11 @@ export const FIELDS: Record<BlockType, FieldDef[]> = {
   odds: [
     { key: 'odds', label: 'Коэффициенты W1 / X / W2', kind: 'text', def: '2.10 / 3.40 / 3.25' },
     { key: 'labels', label: 'Подписи исходов', kind: 'text', def: 'W1 / X / W2' },
-    { key: 'link', label: 'Ссылка', kind: 'link', def: '' },
   ],
   recodds: [
     { key: 'pick', label: 'Ставка', kind: 'text', def: 'Рекомендуем ставку: ТБ 4.5 + обе забьют' },
     { key: 'coef', label: 'Коэффициент', kind: 'text', def: '7.77' },
     { key: 'suffix', label: 'Подпись снизу', kind: 'text', def: 'в линии {{brand}}' },
-    { key: 'link', label: 'Ссылка', kind: 'link', def: '' },
   ],
   multibet: [
     { key: 'image', label: 'Картинка', kind: 'image', def: '' },
@@ -187,7 +194,7 @@ export const FIELDS: Record<BlockType, FieldDef[]> = {
     { key: 'sub', label: 'Подзаголовок', kind: 'text', def: 'Кто разрушит монополию ПСЖ?' },
     { key: 'text', label: 'Текст', kind: 'textarea', def: '12 титулов за 14 лет — ПСЖ безоговорочный фаворит. Но на охоту за трофеем выходят Монако, Марсель, Лион и Лилль. Кто бросит вызов парижанам?' },
     { key: 'cta', label: 'Текст кнопки', kind: 'text', def: 'Bet Now' },
-    { key: 'link', label: 'Ссылка', kind: 'link', def: '' },
+    { key: 'link', label: 'Ссылка кнопки', kind: 'link', def: '' },
   ],
   timer: [
     { key: 'title', label: 'Подпись', kind: 'text', def: 'Срок действия предложения:' },
@@ -207,7 +214,9 @@ export const FIELDS: Record<BlockType, FieldDef[]> = {
     { key: 'managerEmail', label: 'Почта менеджера', kind: 'text', def: '' },
     { key: 'hours', label: 'Часы работы', kind: 'text', def: '' },
     { key: 'supportEmail', label: 'Почта поддержки', kind: 'text', def: '' },
-    { key: 'unsub', label: 'Ссылка отписки', kind: 'link', def: '{{unsubscribe}}' },
+    { key: 'unsub', label: 'Ссылка «Отписаться»', kind: 'link', def: '{{unsubscribe}}' },
+    { key: 'appleLink', label: 'Кнопка App Store', kind: 'link', def: '' },
+    { key: 'androidLink', label: 'Кнопка Android', kind: 'link', def: '' },
   ],
 };
 
@@ -236,6 +245,9 @@ export const PATTERN_NAMES: Record<PatternName, string> = {
   diag: 'Диагональ', dots: 'Точки', grid: 'Сетка', plus: 'Крестики', diamond: 'Ромбы', waves: 'Волны', circles: 'Кольца', chevron: 'Ёлочка',
 };
 
-/** Скругление кнопок по умолчанию — своё у каждого варианта; общее скругление макета на кнопки не распространяется. */
+/** Скругление кнопок по умолчанию — своё у каждого варианта. Общее скругление макета применяется к ним через theme.btnRadius. */
 export const BTN_RADIUS_BY_VARIANT = [50, 50, 0, 0, 50, 0, 16, 24, 0, 56, 0, 0, 26, 26];
 export const BTN_RADIUS = 12;
+/** Варианты кнопок, у которых скругление меняется. Остальные — фигуры (трапеция, лента, стрелка…) или с асимметрией из Figma. */
+export const BTN_ROUNDABLE = [0, 1, 4, 6, 7, 9, 13];
+export const btnRoundable = (kind: number) => BTN_ROUNDABLE.includes(kind);

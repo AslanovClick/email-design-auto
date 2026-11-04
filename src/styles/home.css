@@ -31,6 +31,22 @@
 .draft-t b { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .draft-t span { font-size: 11.5px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .draft .del { opacity: 0; }
+/* выбор нескольких черновиков */
+.drafts-head .spacer { flex: 1; }
+.drafts-head .btn { font-size: 12px; }
+.drafts-bar { display: flex; align-items: center; gap: 6px; }
+.drafts-bar .picked { font: 500 12px var(--sans); color: var(--muted); margin-right: 6px; }
+.btn.danger { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.danger:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn.danger:disabled { opacity: 0.4; }
+.draft-ico { position: relative; }
+.draft-check { position: absolute; inset: 8px; border-radius: 6px; border: 1.5px solid var(--line-3); background: var(--panel); color: #fff; padding: 0; display: grid; place-items: center; opacity: 0; transition: opacity 0.12s, background 0.12s, border-color 0.12s; }
+.draft-check:hover { border-color: var(--accent); }
+.draft:hover .draft-check, .drafts.selecting .draft-check { opacity: 1; }
+.draft:hover .draft-ico .doc, .drafts.selecting .draft-ico .doc { opacity: 0; }
+.draft.picked { border-color: var(--accent-line); background: var(--accent-soft); }
+.draft.picked .draft-check { background: var(--accent); border-color: var(--accent); }
+.drafts.selecting .draft { user-select: none; }
 .draft:hover .del, .draft:focus-within .del { opacity: 1; }
 @media (max-width: 640px) {
   .home-in { padding: 28px 16px 64px; }
@@ -38,3 +54,36 @@
   .home-tpls { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .home-tpl-pic { height: 180px; }
 }
+
+/* сборка по ТЗ */
+.brief-card .blank-pic { border-style: dashed; color: var(--accent); background: radial-gradient(120px 80px at 50% 40%, var(--accent-soft), transparent 70%); }
+.dialog.brief-dlg { width: min(1040px, calc(100vw - 32px)); height: min(760px, calc(100vh - 32px)); grid-template-rows: auto minmax(0, 1fr) auto; }
+.brief-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; min-height: 0; }
+.brief-src { display: grid; min-height: 0; }
+.brief-area { min-height: 0; display: grid; }
+.brief-area textarea { height: 100%; resize: none; font-size: 12.5px; line-height: 1.5; }
+.brief-out { min-height: 0; overflow: auto; border: 1px solid var(--line-2); border-radius: var(--r); background: var(--field); padding: 12px; }
+.brief-empty { height: 100%; display: grid; place-content: center; justify-items: center; gap: 8px; text-align: center; color: var(--muted); padding: 24px; font-size: 12.5px; max-width: 340px; margin: 0 auto; }
+.brief-empty svg { color: var(--accent); }
+.brief-empty b { color: var(--text); font-size: 13.5px; }
+.brief-meta { display: grid; gap: 6px; margin-bottom: 14px; }
+.brief-row { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 10px; align-items: center; font-size: 12.5px; min-height: 24px; }
+.brief-row > span { color: var(--faint); }
+.brief-row b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brief-row i { color: var(--warn); font-style: normal; }
+.brief-client { display: flex; align-items: center; gap: 10px; }
+.brief-client .select { width: 180px; height: 32px; }
+.brief-client small { font-size: 11px; color: var(--ok); }
+.brief-client small.warn { color: var(--warn); }
+.brief-sub { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); margin: 4px 0 8px; }
+.brief-blocks { display: grid; gap: 2px; margin-bottom: 14px; }
+.brief-blk { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 6px 8px 6px 6px; border-radius: var(--r-sm); background: var(--panel); }
+.brief-blk .type-ico { width: 24px; height: 24px; border-radius: 7px; }
+.brief-blk .nm { display: grid; min-width: 0; }
+.brief-blk .nm b { font-size: 12px; font-weight: 600; }
+.brief-blk .nm small { font-size: 11px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brief-blk .org { font: 600 10px/1 var(--mono); text-transform: uppercase; letter-spacing: 0.04em; padding: 4px 6px; border-radius: 5px; white-space: nowrap; }
+.brief-blk .org.tz { background: rgba(52, 208, 123, 0.14); color: var(--ok); }
+.brief-blk .org.fish { background: rgba(255, 176, 32, 0.14); color: var(--warn); }
+.brief-blk .org.design { background: var(--raised-2); color: var(--muted); }
+@media (max-width: 760px) { .brief-cols { grid-template-columns: 1fr; } .dialog.brief-dlg { height: auto; } }

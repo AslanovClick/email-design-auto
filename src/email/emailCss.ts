@@ -277,7 +277,13 @@ export const EMAIL_CSS = `
 .em .e-ct.rows .it .pic { width: 100px; height: 100px; object-fit: cover; border-radius: var(--rad); flex: none; }
 .em .e-ct.c2 .it b { display: block; color: var(--acc); font-size: 32px; line-height: 1.1; }
 .em .e-ct.c2 .it span { font-size: 20px; }
-.em .e-ct.c3 .it span { font-size: 20px; line-height: 1.3; }
+/* шаги — как в макете: узкая колонка по центру, иконка (обычно с прозрачным фоном) и текст в 2–3 строки */
+.em .e-ct.c3 { width: 420px; max-width: 100%; margin: 0 auto; gap: 22px; }
+.em .e-ct.c3 .it { gap: 18px; }
+.em .e-ct.c3 .it .pic { width: 110px; height: 90px; object-fit: contain; border-radius: 0; }
+.em .e-ct.c3 .it .pic.e-ph { border-radius: var(--rad); }
+.em .e-ct.c3 .it span { font-size: 22px; line-height: 1.3; }
+.em .hl { color: var(--acc); font-weight: 700; }
 .em .e-ct.mirror { display: flex; align-items: center; gap: 14px; }
 .em .e-ct.mirror .side { width: 141px; height: 141px; object-fit: cover; border-radius: 8px; flex: none; }
 .em .e-ct.mirror .side.lg { width: 204px; height: 204px; }
@@ -310,6 +316,7 @@ export const EMAIL_CSS = `
 .em .e-ft .legal p { margin: 0 0 16px; }
 .em .e-ft .legal p:last-child { margin: 0; }
 .em .e-ft a { color: var(--acc); text-decoration: none; }
+.em .e-ft a.app { color: var(--txt); }
 .em .e-ft.vip { gap: 6px; padding: 24px 20px 30px; }
 .em .e-ft.vip .sig { margin: 0; font-size: 20px; line-height: 1.6; max-width: 400px; }
 .em .e-ft.vip .mgr { font-size: 24px; font-weight: 700; line-height: 1.6; color: var(--txt); text-decoration: underline; }

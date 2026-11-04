@@ -45,12 +45,12 @@ export function renderFooter(b: Block, doc: EmailDoc) {
   const showPayments = d.payments ?? f.payments;
   const showApps = d.apps ?? f.apps;
   const showOdds = d.oddsNote ?? f.oddsNote;
-  const btn = (icon: string, w: number, label: string) =>
-    `<span class="app"><img src="${ASSET(`footer/${icon}.png`)}" width="${w}" alt=""><span>${label}</span></span>`;
+  const btn = (icon: string, w: number, label: string, link: unknown) =>
+    `<a class="app" href="${esc(link || '#')}"><img src="${ASSET(`footer/${icon}.png`)}" width="${w}" alt=""><span>${label}</span></a>`;
   return `<div class="e-ft">
     <a class="logo-a" href="${esc(d.logoLink || clientSite(doc.client))}"><img class="logo" src="${esc(clientLogo(doc.client, isLightBg(doc)))}" alt="${esc(c.name)}"></a>
     ${showPayments ? `<img class="pay" src="${ASSET('footer/payments.png')}" width="399" alt="Skrill, Neteller, Maestro, Visa, Mastercard">` : ''}
-    ${showApps ? `<div class="apps"><b>${t.app}</b><div class="row">${btn('apple', 22, t.apple)}<b class="amp">&amp;</b>${btn('android', 34, t.android)}</div></div>` : ''}
+    ${showApps ? `<div class="apps"><b>${t.app}</b><div class="row">${btn('apple', 22, t.apple, d.appleLink)}<b class="amp">&amp;</b>${btn('android', 34, t.android, d.androidLink)}</div></div>` : ''}
     <div class="legal">
       ${showOdds ? `<p>${t.odds(esc(c.name))}</p>` : ''}
       <p><a href="mailto:${esc(support)}">${esc(support)}</a> ${t.chat}</p>

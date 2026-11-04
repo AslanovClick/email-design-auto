@@ -19,6 +19,8 @@ interface UiState {
   dragging: boolean;
   /** Куда встанет перетаскиваемый блок. */
   dropAt: number | null;
+  /** Что тащат: блок письма (id) или новый блок из библиотеки (id = null); label — подпись для индикатора. */
+  drag: { id: string | null; label: string } | null;
 
   set:(patch: Partial<Omit<UiState, 'set'>>) => void;
 }
@@ -32,6 +34,7 @@ export const useUi = create<UiState>()((set) => ({
   toast: null,
   dragging: false,
   dropAt: null,
+  drag: null,
   set:(patch) => set(patch),
 }));
 

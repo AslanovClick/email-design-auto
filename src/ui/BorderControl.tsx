@@ -33,15 +33,16 @@ export function BorderControl({ value, onChange }: { value: Width; onChange: (v:
   const base = per ? Math.max(...value) : value;
   return (
     <>
-      <div className="rad-ctl">
-        <Slider label="Толщина" value={base} min={0} max={8} unit="px" onChange={(v) => onChange(per ? value.map((x) => (x ? v : 0)) as Sides : v)} />
-        <Tip label={per ? 'Одинаково со всех сторон' : 'Выбрать стороны'}>
-          <button type="button" className={clsx('corner-btn', per && 'on')} aria-pressed={per}
-            onClick={() => onChange(per ? base : [base, base, base, base])}>
-            <Scan size={16} />
-          </button>
-        </Tip>
-      </div>
+      <Slider label="Толщина" value={base} min={0} max={8} unit="px" onChange={(v) => onChange(per ? value.map((x) => (x ? v : 0)) as Sides : v)}
+        after={(
+          <Tip label={per ? 'Одинаково со всех сторон' : 'Выбрать стороны'}>
+            <button type="button" className={clsx('corner-btn', per && 'on')} aria-pressed={per}
+              aria-label={per ? 'Одинаково со всех сторон' : 'Выбрать стороны'}
+              onClick={() => onChange(per ? base : [base, base, base, base])}>
+              <Scan size={16} />
+            </button>
+          </Tip>
+        )} />
       {per && (
         <div className="corners">
           {GRID.map(({ i, name }) => (

@@ -1,20 +1,12 @@
 import { Plus, X } from 'lucide-react';
-import { LEAGUE_PRESETS, TEAM_PRESETS } from '@/model/presets';
+import { LEAGUE_PRESETS, TEAM_PRESETS, type ImagePreset } from '@/model/presets';
 import type { Block, FieldDef } from '@/model/types';
 import { useEditor } from '@/store/editor';
 import { Field } from '@/ui/controls';
 import { ImageDrop } from '@/ui/ImageInputs';
+import { PresetCombo } from '@/ui/PresetCombo';
 import { PresetPicker } from '@/ui/PresetPicker';
 import { ItemsEditor } from './ItemsEditor';
-
-export function Suggestions() {
-  return (
-    <>
-      <datalist id="dl-teams">{TEAM_PRESETS.map((t) => <option key={t.id} value={t.name} />)}</datalist>
-      <datalist id="dl-leagues">{LEAGUE_PRESETS.map((t) => <option key={t.id} value={t.name} />)}</datalist>
-    </>
-  );
-}
 
 export function FieldInput({ block, f, label }: { block: Block; f: FieldDef; label?: string }) {
   const setData = useEditor((s) => s.setData);
@@ -73,18 +65,22 @@ export function FieldInput({ block, f, label }: { block: Block; f: FieldDef; lab
       const isLeague = f.kind === 'league';
       const logoKey = `${f.key}Logo`;
       const logo = String(block.data[logoKey] ?? '');
+      const presets = isLeague ? LEAGUE_PRESETS : TEAM_PRESETS;
+      // выбор из библиотеки ставит и название, и логотип (у лиги — ещё версию для светлого фона)
+      const pickLogo = (url: string, preset: ImagePreset | null) => setData(block.id, {
+        [logoKey]: url,
+        ...(isLeague ? { [`${f.key}LogoLight`]: preset?.fileOnLight ?? '' } : {}),
+        ...(preset ? { [f.key]: preset.name } : {}),
+      });
       return (
-        <Field label={label ?? f.label}>
+        <div className="field">
+          <span>{label ?? f.label}</span>
           <div className="team-in">
-            <PresetPicker presets={isLeague ? LEAGUE_PRESETS : TEAM_PRESETS} image={logo} name={val} square={isLeague}
-              title={isLeague ? 'Логотип лиги' : 'Герб команды'}
-              onPick={(url, preset) => setData(block.id, {
-                [logoKey]: url,
-                ...(isLeague ? { [`${f.key}LogoLight`]: preset?.fileOnLight ?? '' } : {}),
-                ...(preset ? { [f.key]: preset.name } : {}),
-              })} />
-            <input className="inp" list={isLeague ? 'dl-leagues' : 'dl-teams'} value={val}
-              placeholder={isLeague ? 'Название лиги' : 'Название команды'} onChange={(e) => put(e.target.value)} />
+            <PresetPicker presets={presets} image={logo} name={val} square={isLeague}
+              title={isLeague ? 'Логотип лиги' : 'Герб команды'} onPick={pickLogo} />
+            <PresetCombo presets={presets} value={val} image={logo} square={isLeague}
+              placeholder={isLeague ? 'Название лиги' : 'Название команды'}
+              onText={put} onPick={(p) => pickLogo(p.file, p)} />
           </div>
           {logo && (
             <button type="button" className="link-btn" style={{ justifySelf: 'start' }}
@@ -92,7 +88,7 @@ export function FieldInput({ block, f, label }: { block: Block; f: FieldDef; lab
               {isLeague ? 'Убрать логотип — показывать название' : 'Убрать герб'}
             </button>
           )}
-        </Field>
+        </div>
       );
     }
     case 'image':

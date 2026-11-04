@@ -50,7 +50,9 @@ export const FONT_STACK: Record<FontName, string> = {
 export function emailVars(doc: EmailDoc) {
   const t = doc.theme;
   return `--bg:${t.bg};--card:${t.card};--acc:${t.accent};--acc-ink:${inkFor(t.accent)};`
-    + `--txt:${t.text};--rad:${radCss(t.radius)};--font:${FONT_STACK[t.font]};${buttonVars(t.accent)}`;
+    + `--txt:${t.text};--rad:${radCss(t.radius)};--font:${FONT_STACK[t.font]};${buttonVars(t.accent)}`
+    // общее скругление кнопок; фигурные кнопки его не берут (у них border-radius задан в CSS)
+    + (t.btnRadius != null ? `--btn-rad:${radCss(t.btnRadius)};` : '');
 }
 
 /** Действующая обводка блока: своя из «Стиля блока» или та, что задана вариантом в Figma. */
@@ -72,7 +74,7 @@ export function blockVars(b: Block, doc?: EmailDoc) {
   if (st.text && b.type !== 'cta') v += `--txt:${st.text};`;
   // плашку убрали — все заливки блока цвета плашек становятся прозрачными
   if (st.cardMode === 'off') v += '--card:transparent;';
-  // у кнопок своё скругление — общее скругление макета на них не распространяется
+  // скругление блока: у кнопок — своё (--btn-rad), у остальных — плашек и картинок (--rad)
   const vr = variantRadius(b.type, b.v);
   if (st.radius != null) v += `${b.type === 'cta' ? '--btn-rad' : '--rad'}:${radCss(st.radius)};`;
   else if (vr != null) v += `--rad:${vr}px;`;

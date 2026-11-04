@@ -1,7 +1,7 @@
 import { useDraggable } from '@dnd-kit/core';
 import clsx from 'clsx';
-import { AlertTriangle, ArrowDown, ArrowUp, Copy, GripVertical, Plus, Trash2 } from 'lucide-react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, ArrowDown, ArrowDownUp, ArrowUp, Copy, GripVertical, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { clientName } from '@/email/blocks';
 import { runChecks } from '@/email/checks';
 import { CLIENTS, catalogOf, isRequired, isSingle } from '@/model/catalog';
@@ -30,7 +30,7 @@ export function Canvas() {
   const doc = useEditor((s) => s.doc)!;
   const selected = useEditor((s) => s.selected);
   const select = useEditor((s) => s.select);
-  const { layersOpen, dragging, dropAt } = useUi();
+  const { layersOpen, dragging, dropAt, drag } = useUi();
   const setUi = useUi((s) => s.set);
 
   const stageRef = useRef<HTMLElement>(null);
@@ -59,6 +59,9 @@ export function Canvas() {
       const frame = frameWrap.current?.getBoundingClientRect();
       const wrap = frameWrap.current;
       if (!stage || !frame || !wrap || x < stage.left || x > stage.right || y < stage.top || y > stage.bottom) return null;
+      // над панелью слоёв — не над письмом
+      const layers = stageRef.current?.parentElement?.querySelector('.layers-float')?.getBoundingClientRect();
+      if (layers && x >= layers.left && x <= layers.right && y >= layers.top && y <= layers.bottom) return null;
       const k = frame.height / (wrap.offsetHeight || 1);
       const rel = (y - frame.top) / k;
       const { rects: rs, doc: d } = geo.current;
@@ -71,6 +74,41 @@ export function Canvas() {
     return () => { dropBridge.indexAt = () => null; };
   }, []);
 
+  // перетаскивание у верхнего/нижнего края холста прокручивает письмо — так блок можно донести куда угодно,
+  // а место вставки пересчитывается, даже если курсор стоит на месте
+  useEffect(() => {
+    if (!dragging) return;
+    const stage = stageRef.current;
+    if (!stage) return;
+    const EDGE = 80;
+    const MAX = 18;
+    let raf = 0;
+    const refresh = () => {
+      const p = dropBridge.pointer;
+      const at = p ? dropBridge.indexAt(p.x, p.y) : null;
+      if (at !== useUi.getState().dropAt) useUi.getState().set({ dropAt: at });
+    };
+    const tick = () => {
+      const p = dropBridge.pointer;
+      const r = stage.getBoundingClientRect();
+      if (p && p.x >= r.left && p.x <= r.right) {
+        const up = p.y - r.top;
+        const down = r.bottom - p.y;
+        let dy = 0;
+        if (up < EDGE) dy = -MAX * (1 - Math.max(0, up) / EDGE);
+        else if (down < EDGE) dy = MAX * (1 - Math.max(0, down) / EDGE);
+        if (dy) stage.scrollTop += dy;
+      }
+      // каждый кадр: письмо могли прокрутить колесом или автопрокруткой, а курсор стоит на месте
+      refresh();
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    // колесо мыши во время перетаскивания тоже двигает письмо под курсором
+    stage.addEventListener('scroll', refresh, { passive: true });
+    return () => { cancelAnimationFrame(raf); stage.removeEventListener('scroll', refresh); };
+  }, [dragging]);
+
   const checks = useMemo(() => runChecks(doc), [doc]);
   const byId = useMemo(() => new Map(doc.blocks.map((b) => [b.id, b])), [doc.blocks]);
   const rectOf = (id: string | null) => rects.find((r) => r.id === id);
@@ -81,6 +119,10 @@ export function Canvas() {
   };
 
   const dropY = dropAt == null ? null : dropAt < rects.length ? rects[dropAt].top : (rects.at(-1)?.top ?? 0) + (rects.at(-1)?.height ?? 0);
+  // перенос блока на его же место ничего не меняет — линию не показываем
+  const dragFrom = drag?.id ? doc.blocks.findIndex((b) => b.id === drag.id) : -1;
+  const noop = dragFrom >= 0 && (dropAt === dragFrom || dropAt === dragFrom + 1);
+  const dragRect = drag?.id ? rectOf(drag.id) : undefined;
 
   return (
     <div className={clsx('stage-wrap', layersOpen && 'lf-open')}>
@@ -92,7 +134,8 @@ export function Canvas() {
           <div className="frame-wrap" ref={frameWrap} onMouseLeave={() => setHover(null)}>
             <PreviewFrame doc={doc} onLayout={setRects} onHover={setHover} onPick={onPick}
               onKey={(e) => handleHotkey(e, true)} />
-            <div className={clsx('ov', dragging && 'catch')}>
+            {/* --z: масштаб письма — индикатор перетаскивания не мельчает вместе с ним */}
+            <div className={clsx('ov', dragging && 'catch')} style={{ '--z': zoom } as CSSProperties}>
               {[...checks.flagged].map((id) => {
                 const r = rectOf(id);
                 return r && <span key={id} className="ov-flag" style={{ top: r.top + 10 }} title="Есть замечания"><AlertTriangle size={12} /></span>;
@@ -104,7 +147,19 @@ export function Canvas() {
               {selected && byId.get(selected) && rectOf(selected) && (
                 <Selection block={byId.get(selected)!} rect={rectOf(selected)!} doc={doc} />
               )}
-              {dropY != null && dragging && <div className="ov-drop" style={{ top: dropY }} />}
+              {dragging && dragRect && (
+                <div className="ov-ghost" style={{ top: dragRect.top, height: dragRect.height }}>
+                  {noop && <span>Блок останется на месте</span>}
+                </div>
+              )}
+              {dragging && dropY != null && !noop && (
+                <div className={clsx('ov-drop', dropAt === 0 && 'first', dropAt === rects.length && 'last')} style={{ top: dropY }}>
+                  <span className="ov-drop-tag">
+                    {drag?.id ? <ArrowDownUp size={12} strokeWidth={2.5} /> : <Plus size={12} strokeWidth={2.5} />}
+                    {drag?.id ? 'Переместить сюда' : 'Вставить сюда'}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>

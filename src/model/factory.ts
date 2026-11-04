@@ -1,4 +1,4 @@
-import { CLIENTS, DEFAULT_FONT, FIELDS, TEMPLATES, THEME_PRESETS } from './catalog';
+import { CLIENTS, DEFAULT_FONT, FIELDS, TEMPLATES, THEME_PRESETS, variantDefaults } from './catalog';
 import { ASSET } from './presets';
 import type { Background, Block, BlockData, BlockType, EmailDoc, Theme } from './types';
 
@@ -7,6 +7,7 @@ export const newId = (prefix = 'b') => prefix + Math.random().toString(36).slice
 export function createBlock(type: BlockType, v = 0, over: BlockData = {}): Block {
   const data: BlockData = {};
   FIELDS[type].forEach((f) => { data[f.key] = f.def; });
+  Object.assign(data, variantDefaults(type, v));
   if (type === 'hero') {
     Object.assign(data, {
       hv: 0, dateStyle: 0, teamsOn: true, imageOn: true,

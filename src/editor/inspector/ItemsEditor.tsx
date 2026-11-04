@@ -78,6 +78,7 @@ export function ItemsEditor({ block, field, label, spec }: { block: Block; field
           <Plus size={14} />{spec.add}
         </button>
       )}
+      {spec.hint && <div className="hint" style={{ margin: 0 }}>{spec.hint}</div>}
     </div>
   );
 }

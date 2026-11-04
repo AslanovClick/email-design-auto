@@ -42,6 +42,9 @@ export interface Theme {
   text: string;
   font: FontName;
   radius: Radius;
+  /** Скругление кнопок, которые его поддерживают (не фигурных). Нет ключа — у каждой кнопки скругление её варианта
+   *  (пока скругление макета не меняли); null — кнопки отвязаны от скругления макета. */
+  btnRadius?: Radius | null;
   /** Индекс пресета, 'auto' — палитра по картинке hero, -1 — свои цвета. */
   preset: number | 'auto';
 }
@@ -73,6 +76,8 @@ export interface EmailDoc {
   bg: Background;
   blocks: Block[];
   updatedAt: number;
+  /** Письмо собрано по ТЗ: исходный текст и заметки для дизайнера (что сделать руками). */
+  brief?: { source: string; notes: string[] };
 }
 
 export type FieldKind = 'text' | 'textarea' | 'link' | 'image' | 'images' | 'team' | 'league' | 'list' | 'paragraphs' | 'items';

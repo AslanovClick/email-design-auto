@@ -36,8 +36,8 @@ export function ColorRow({ label, value, onChange, inherited, inheritedLabel = '
         <Popover.Portal>
           <Popover.Content className="picker-pop" sideOffset={8} align="start" side="left">
             <HexColorPicker color={value} onChange={onChange} />
-            <button type="button" className="btn sm block" onClick={async () => { const c = await pickScreenColor(); if (c) onChange(c); }}>
-              <Pipette size={14} />Пипетка — взять цвет с экрана
+            <button type="button" className="btn sm block" title="Взять цвет с экрана" onClick={async () => { const c = await pickScreenColor(); if (c) onChange(c); }}>
+              <Pipette size={14} />Пипетка
             </button>
           </Popover.Content>
         </Popover.Portal>

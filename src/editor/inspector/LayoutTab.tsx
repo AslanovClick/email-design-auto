@@ -8,7 +8,7 @@ import type { BgFit, BgMode, EmailDoc } from '@/model/types';
 import { useEditor } from '@/store/editor';
 import { notify, useUi } from '@/store/ui';
 import { ColorRow } from '@/ui/ColorField';
-import { Field, Section, Segmented, Slider } from '@/ui/controls';
+import { Field, Section, Segmented, Slider, Toggle } from '@/ui/controls';
 import { ImageDrop } from '@/ui/ImageInputs';
 import { RadiusControl } from '@/ui/RadiusControl';
 import { Select } from '@/ui/Select';
@@ -80,8 +80,15 @@ export function LayoutTab({ doc }: { doc: EmailDoc }) {
           <Select label="Шрифт письма" value={t.font} onChange={(font) => setTheme({ font: font as typeof t.font })}
             options={FONTS.map((f) => ({ value: f, label: f, hint: f === DEFAULT_FONT ? 'по умолчанию' : f === 'Roboto' ? 'веб-шрифт' : undefined }))} />
         </Field>
-        <RadiusControl label="Скругление плашек и картинок" value={t.radius} onChange={(radius) => setTheme({ radius })} />
-        <div className="hint">На кнопки не распространяется — у каждой кнопки своё скругление.</div>
+        <RadiusControl label="Скругление плашек и картинок" value={t.radius}
+          onChange={(radius) => setTheme({ radius, ...(t.btnRadius !== null ? { btnRadius: radius } : {}) })} />
+        <Toggle label="Применять и к кнопкам" checked={t.btnRadius != null}
+          onChange={(on) => setTheme({ btnRadius: on ? t.radius : null })} />
+        <div className="hint" style={{ marginTop: -6 }}>
+          {t.btnRadius != null
+            ? 'Кнопки скругляются так же, как плашки. Фигурные кнопки (трапеция, лента, стрелка…) сохраняют свою форму.'
+            : 'Кнопки со скруглением своего варианта из Figma.'}
+        </div>
       </Section>
 
       <Section id="bg" title="Фон письма" meta={{ color: 'цвет', pattern: 'паттерн', image: 'картинка' }[g.mode]}>

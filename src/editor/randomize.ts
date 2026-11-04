@@ -2,10 +2,12 @@
 // Состав письма не трогаем: те же блоки, в том же порядке, с теми же вариантами и контентом.
 // Это не чистый рандом, а подбор по правилам, чтобы письмо оставалось цельным:
 // - палитра строится от одного оттенка: тёмный фон, чуть светлее плашки, яркий акцент в гармоничном сдвиге;
-// - скругления из одной «семьи», кнопки — одного стиля на всё письмо;
+// - одно скругление на всё письмо: плашки, картинки и кнопки (если форма кнопки его допускает);
+// - кнопки — одного стиля, разделители — одного вида на всё письмо;
 // - обводка у блоков, где она есть, — одной толщины.
 
 import { catalogOf, PATTERNS, THEME_PRESETS, variantBorder } from '@/model/catalog';
+import { hasFactsSep } from '@/model/facts';
 import type { Background, Block, BlockStyle, EmailDoc, Radius, Theme } from '@/model/types';
 
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
@@ -39,17 +41,8 @@ function palette(): Pick<Theme, 'bg' | 'card' | 'accent' | 'text' | 'preset'> {
   };
 }
 
-// скругления плашек и кнопок подбираются парой; null — кнопка остаётся со скруглением своего варианта
-const RADIUS_FAMILIES: { box: Radius; btn: Radius | null }[] = [
-  { box: 0, btn: 0 },
-  { box: 6, btn: 6 },
-  { box: 12, btn: null },
-  { box: 16, btn: 999 },
-  { box: 20, btn: null },
-  { box: 24, btn: 999 },
-  { box: [18, 0, 18, 0], btn: [14, 0, 14, 0] },
-  { box: [0, 16, 0, 16], btn: 8 },
-];
+// скругление на всё письмо: оно же идёт на кнопки, чтобы письмо было цельным
+const RADII: Radius[] = [0, 6, 12, 16, 20, 24, [18, 0, 18, 0], [0, 16, 0, 16]];
 
 function background(): Partial<Background> {
   if (Math.random() < 0.3) return { mode: 'color' };
@@ -60,20 +53,23 @@ function background(): Partial<Background> {
 const hasInnerButton = (b: Block) => b.type === 'league' || (b.type === 'bullets' && [6, 7, 9].includes(b.v));
 
 export function randomizeStyle(doc: EmailDoc): Pick<EmailDoc, 'theme' | 'bg' | 'blocks'> {
-  const fam = pick(RADIUS_FAMILIES);
-  const theme: Theme = { ...doc.theme, ...palette(), radius: fam.box };
+  const radius = pick(RADII);
+  const theme: Theme = { ...doc.theme, ...palette(), radius, btnRadius: radius };
   const bg: Background = { ...doc.bg, ...background() };
   const btnKind = Math.floor(Math.random() * catalogOf('cta').variants.length);
   const borderW = pick([1, 2, 2, 3, 4]);
+  // один вид разделителя: и у блоков «Разделитель», и между строками фактов
+  const sepKind = Math.floor(Math.random() * catalogOf('separator').variants.length);
 
   const blocks: Block[] = doc.blocks.map((b) => {
     // свой стиль блока сбрасываем: цвета теперь общие
     const style: BlockStyle = {};
-    if (b.type === 'cta' && fam.btn != null) style.radius = fam.btn;
     // у кого обводка задана вариантом — общая толщина по тем же сторонам
     const vb = variantBorder(b.type, b.v);
     if (vb && Math.random() < 0.8) style.borderW = vb.map((x) => (x ? borderW : 0)) as BlockStyle['borderW'];
     if (b.type === 'cta') return { ...b, v: btnKind, style };
+    if (b.type === 'separator') return { ...b, v: sepKind, style };
+    if (b.type === 'facts' && hasFactsSep(b.v)) return { ...b, style, data: { ...b.data, sep: sepKind } };
     if (hasInnerButton(b)) return { ...b, style, data: { ...b.data, btn: btnKind } };
     return { ...b, style };
   });

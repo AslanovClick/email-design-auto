@@ -25,6 +25,8 @@ export interface ItemsSpec {
   add: string;
   types: ItemType[];
   max?: number;
+  /** Подсказка под пунктами. */
+  hint?: string;
   /** Разбор старого формата поля (строки текста) — чтобы не сломать сохранённые черновики. */
   legacy?: (s: string) => Item[];
 }
@@ -78,6 +80,7 @@ export const BONUS_ITEMS: ItemsSpec = {
 export const STEP_ITEMS: ItemsSpec = {
   add: 'Добавить шаг',
   max: 8,
-  types: [{ id: 'step', label: 'Шаг', fields: [IMG, { key: 'text', label: 'Текст', kind: 'textarea' }], sample: { text: 'Новый шаг' } }],
+  hint: 'Выделить жирным и акцентным цветом — в слешах: «Сделайте депозит от /15 EUR/».',
+  types: [{ id: 'step', label: 'Шаг', fields: [IMG, { key: 'text', label: 'Текст', kind: 'textarea', placeholder: 'Сделайте депозит от /15 EUR/' }], sample: { text: 'Новый шаг' } }],
   legacy: (s) => lines(s).map((text) => ({ text })),
 };

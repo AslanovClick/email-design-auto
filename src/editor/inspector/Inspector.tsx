@@ -5,7 +5,6 @@ import { useUi, type RightTab } from '@/store/ui';
 import { Segmented } from '@/ui/controls';
 import { BlockTab } from './BlockTab';
 import { ChecksTab } from './ChecksTab';
-import { Suggestions } from './FieldInput';
 import { LayoutTab } from './LayoutTab';
 
 export function Inspector() {
@@ -29,7 +28,6 @@ export function Inspector() {
         {rightTab === 'block' && <BlockTab key={block?.id} doc={doc} block={block} />}
         {rightTab === 'checks' && <ChecksTab doc={doc} />}
       </div>
-      <Suggestions />
     </aside>
   );
 }
