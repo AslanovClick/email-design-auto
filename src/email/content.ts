@@ -49,16 +49,18 @@ export function renderTimer(b: Block) {
   const labels = split(d.labels);
   const cells = vals.map((v, i) => ({ v, l: labels[i] ?? '' }));
   const title = d.title ? `<div class="tt">${esc(d.title)}</div>` : '';
+  // цифры таймера в письме — картинка со ссылкой (в сервисе рассылки её меняют на живой таймер)
+  const plan = 'data-plan="img" data-plan-name="timer" data-plan-link=""';
   let row = '';
   switch (b.v) {
     case 2:
-      row = `<div class="row board">${cells.map((c, i) => `${i ? '<b class="colon">:</b>' : ''}<span class="cell"><b>${esc(c.v)}</b><small>${esc(c.l)}</small></span>`).join('')}</div>`;
+      row = `<div class="row board" ${plan}>${cells.map((c, i) => `${i ? '<b class="colon">:</b>' : ''}<span class="cell"><b>${esc(c.v)}</b><small>${esc(c.l)}</small></span>`).join('')}</div>`;
       break;
     case 3:
-      row = `<div class="row line">${cells.map((c) => `<span><b>${esc(c.v)}</b> ${esc(c.l).toLowerCase()}</span>`).join('')}</div>`;
+      row = `<div class="row line" ${plan}>${cells.map((c) => `<span><b>${esc(c.v)}</b> ${esc(c.l).toLowerCase()}</span>`).join('')}</div>`;
       break;
     default:
-      row = `<div class="row">${cells.map((c) => `<span class="cell e-frame"><b>${esc(c.v)}</b><small>${esc(c.l)}</small></span>`).join('')}</div>`;
+      row = `<div class="row" ${plan}>${cells.map((c) => `<span class="cell e-frame"><b>${esc(c.v)}</b><small>${esc(c.l)}</small></span>`).join('')}</div>`;
   }
   return `<div class="e-pad"><div class="e-tm2 t${b.v}">${title}${row}</div></div>`;
 }

@@ -6,9 +6,11 @@
 import { catalogOf } from '@/model/catalog';
 import type { Block, EmailDoc } from '@/model/types';
 import { normLink, slug } from './names';
-import { relRect, type Frame, type RasterMode } from './raster';
-import { normColor, styleDiff, textStyle } from './style';
-import type { Align, Border, BoxItem, ImgItem, Plan, PlanItem, PlanRadius, Rect, Run, StackItem, TextItem } from './types';
+import { relRect, shadowRect, type Frame, type RasterMode } from './raster';
+import { normColor, parseColor, styleDiff, textStyle } from './style';
+import type {
+  Align, Border, BoxItem, BtnItem, ColsItem, HeroItem, ImgItem, LineItem, Plan, PlanItem, PlanRadius, Rect, Run, StackItem, TextItem,
+} from './types';
 
 /** Картинка, которую снимет сборка: key стоит в поле file/bg элемента, пока не заменён именем файла. */
 export interface ShotRequest { key: string; el: Element; mode: RasterMode; base: string; rect?: Rect; scale?: 1 | 2 }
@@ -27,7 +29,6 @@ class Planner {
   private blockId = '';
   private blockName = '';
   private n = 0;
-  private block: Block | undefined;
   private readonly page: string;
   private readonly blocks: Map<string, Block>;
 
@@ -86,8 +87,8 @@ class Planner {
     for (const blk of this.f.em.querySelectorAll<HTMLElement>(':scope > .em-blk')) {
       if (!this.visible(blk)) continue;
       this.blockId = blk.dataset.blockId ?? 'blk';
-      this.block = this.blocks.get(this.blockId);
-      this.blockName = this.block ? catalogOf(this.block.type).name : '';
+      const block = this.blocks.get(this.blockId);
+      this.blockName = block ? catalogOf(block.type).name : '';
       this.n = 0;
       const it = this.walk(blk);
       // столбик блока без своей отрисовки — его строки сразу строками письма (как rootKids у плагина)
@@ -117,9 +118,114 @@ class Planner {
     return this.boxed(el, inner);
   }
 
-  /** Точка расширения: блоки с подсказками data-plan в рендерах. undefined — подсказки нет. */
-  hint(_el: Element): PlanItem | null | undefined {
-    return undefined;
+  // --- подсказки рендеров (data-plan): что за элемент, решает разметка блока, а не догадка по стилям
+
+  /** undefined — подсказки нет, элемент разбирается общим обходом. */
+  hint(el: Element): PlanItem | null | undefined {
+    switch ((el as HTMLElement).dataset?.plan) {
+      case 'hero': return this.hero(el);
+      case 'img': return this.hintImg(el);
+      case 'btn': return this.btn(el);
+      case 'cols': return this.cols(el);
+      case 'divider': return this.line(el);
+      default: return undefined;
+    }
+  }
+
+  /** Рамка вместе с детьми, вылезающими за неё (гербы ниже баннера); обрезка overflow учитывается. */
+  outerRect(el: Element): Rect {
+    const r = this.rect(el);
+    const box = { x0: r.x, y0: r.y, x1: r.x + r.w, y1: r.y + r.h };
+    const clipOf = (e: Element, c: typeof box) => {
+      if (this.cs(e).overflow === 'visible') return c;
+      const q = this.rect(e);
+      return { x0: Math.max(c.x0, q.x), y0: Math.max(c.y0, q.y), x1: Math.min(c.x1, q.x + q.w), y1: Math.min(c.y1, q.y + q.h) };
+    };
+    const visit = (e: Element, clip: typeof box) => {
+      for (const k of e.children) {
+        if (!this.visible(k)) continue;
+        const q = this.rect(k);
+        if (q.w > 0 && q.h > 0) {
+          box.x0 = Math.min(box.x0, Math.max(q.x, clip.x0)); box.y0 = Math.min(box.y0, Math.max(q.y, clip.y0));
+          box.x1 = Math.max(box.x1, Math.min(q.x + q.w, clip.x1)); box.y1 = Math.max(box.y1, Math.min(q.y + q.h, clip.y1));
+        }
+        visit(k, clipOf(k, clip));
+      }
+    };
+    visit(el, clipOf(el, { x0: 0, y0: -Infinity, x1: 600, y1: Infinity }));
+    return { x: box.x0, y: box.y0, w: box.x1 - box.x0, h: box.y1 - box.y0 };
+  }
+
+  /** Hero целиком — одна картинка main (текст на баннере вшивается), лого и лига — зоны клика. */
+  hero(el: Element): HeroItem {
+    const r = this.outerRect(el);
+    const zones = [...el.querySelectorAll('[data-plan-zone]')].filter((z) => this.visible(z))
+      .map((z) => ({ ...this.rect(z), ln: normLink(z.getAttribute('data-plan-zone')) }));
+    if (el.querySelector('.e-hero-pic.empty')) this.warn(`В блоке «${this.blockName}» не загружена картинка — в письме будет заглушка`);
+    return { k: 'hero', id: this.id(), ...r, file: this.shot(el, 'whole', 'main', r), zones, content: [] };
+  }
+
+  /** Картинка целиком: data-plan-name — имя файла, data-plan-link — ссылка (пустая — заглушка), у <a> — его href. */
+  hintImg(el: Element): ImgItem {
+    const d = (el as HTMLElement).dataset;
+    const r = this.outerRect(el);
+    if (el.matches('.e-ph') || el.querySelector('.e-ph')) this.warn(`В блоке «${this.blockName}» не загружена картинка — в письме будет заглушка`);
+    const alt = d.planAlt ?? el.getAttribute('alt') ?? el.querySelector('img')?.getAttribute('alt') ?? '';
+    const it: ImgItem = { k: 'img', id: this.id(), ...r, file: this.shot(el, 'whole', d.planName || 'img', r), alt };
+    const ln = el.hasAttribute('data-plan-link') ? normLink(d.planLink) : el.tagName === 'A' ? normLink(el.getAttribute('href')) : undefined;
+    if (ln) it.ln = ln;
+    return it;
+  }
+
+  /** Кнопка: CSS (сплошная заливка) или подложка без текста вместе с «бортиком» + живая надпись-ссылка. */
+  btn(el: Element): BtnItem {
+    const span = el.querySelector('span') ?? el;
+    const st = textStyle(this.cs(span), this.page);
+    const runs = this.runs(span, st).map(({ ln: _ln, ...r }) => r);   // ссылка в ссылке ломается
+    const p = this.paint(el);
+    const frame = p.kind === 'css' ? this.rect(el) : shadowRect(el, this.f);
+    const s = this.rect(span);
+    const b: BtnItem = {
+      k: 'btn', id: this.id(), ...frame, text: { st, runs }, ln: normLink(el.getAttribute('href')),
+      pad: [s.y - frame.y, frame.y + frame.h - (s.y + s.h)],
+    };
+    if (p.kind === 'css') {
+      b.fill = p.fill ?? this.page;
+      if (p.border) b.border = p.border;
+      if (p.r) b.r = p.r;
+    } else b.bg = this.shot(el, 'nobg', 'btn', frame);
+    return b;
+  }
+
+  /** Ряд колонок поровну; «цифры — длинная подпись — цифры» — подпись шире. Линии между колонками — dividers. */
+  cols(el: Element): PlanItem | null {
+    const kids = this.kids(el);
+    const isDiv = (k: Element) => (k as HTMLElement).dataset?.plan === 'divider';
+    const cellEls = kids.filter((k) => !isDiv(k));
+    const cells = cellEls.map((k) => this.walk(k)).filter((x): x is PlanItem => !!x);
+    const cb = this.contentBox(el);
+    const cols: ColsItem = { k: 'cols', id: this.id(), ...cb, cells, dividers: kids.filter(isDiv).map((k) => this.line(k)) };
+    if (cells.length === 3 && cellEls.length === 3) {
+      const len = cellEls.map((c) => (c.textContent ?? '').trim().length);
+      if (len[1] >= 8 && len[1] >= 2 * Math.max(len[0], len[2])) {
+        const e = Math.max(0.2 * cb.w, Math.max(cells[0].w, cells[2].w) + 16);
+        cols.shares = [e, cb.w - 2 * e, e];
+      }
+    }
+    return this.boxed(el, cols);
+  }
+
+  /** Линия: цвет фона с учётом прозрачности — поверх ближайшей заливки под ней. */
+  line(el: Element): LineItem {
+    const cs = this.cs(el);
+    const c = parseColor(cs.backgroundColor) ?? [255, 255, 255, 1];
+    let under = this.page;
+    for (let p = el.parentElement; p && p !== this.f.em; p = p.parentElement) {
+      const bg = normColor(this.cs(p).backgroundColor, this.page);
+      if (bg) { under = bg; break; }
+    }
+    const rgba = `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${c[3] * px(cs.opacity || '1')})`;
+    return { k: 'line', id: this.id(), ...this.rect(el), c: normColor(rgba, under) ?? under };
   }
 
   img(el: Element, base: string, alt: string, ln = this.link(el)): ImgItem {

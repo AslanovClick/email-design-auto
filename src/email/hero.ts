@@ -34,13 +34,15 @@ export function renderDate(d: BlockData) {
 function leagueHtml(d: BlockData, doc: EmailDoc) {
   const logo = isLightBg(doc) && d.leagueLogoLight ? str(d, 'leagueLogoLight') : str(d, 'leagueLogo');
   return logo
-    ? `<span class="e-lg"><img src="${esc(logo)}" alt="${esc(d.league)}"></span>`
-    : `<span class="e-lg txt">${esc(d.league)}</span>`;
+    ? `<span class="e-lg" data-plan-zone=""><img src="${esc(logo)}" alt="${esc(d.league)}"></span>`
+    : `<span class="e-lg txt" data-plan-zone="">${esc(d.league)}</span>`;
 }
 
-// логотип всегда ссылка: своя или на сайт клиента
-const logoHtml = (doc: EmailDoc, d: BlockData) =>
-  `<a class="e-brand" href="${esc(d.logoLink || clientSite(doc.client))}"><img src="${esc(clientLogo(doc.client, isLightBg(doc)))}" alt="${esc(clientPreset(doc.client).name)}"></a>`;
+// логотип всегда ссылка: своя или на сайт клиента; в письме для рассылки лого и лига — зоны клика на картинке hero
+const logoHtml = (doc: EmailDoc, d: BlockData) => {
+  const href = esc(d.logoLink || clientSite(doc.client));
+  return `<a class="e-brand" href="${href}" data-plan-zone="${href}"><img src="${esc(clientLogo(doc.client, isLightBg(doc)))}" alt="${esc(clientPreset(doc.client).name)}"></a>`;
+};
 
 /** Хедер: в «3 элементах» дата строго по центру, лого и лига прижаты к краям. */
 export function headerRow(v: number, d: BlockData, doc: EmailDoc) {
@@ -83,12 +85,12 @@ export function renderHero(b: Block, doc: EmailDoc) {
   const teams = d.teamsOn ? heroTeams(b) : '';
   // без картинки hero = хедер (+ команды) в потоке письма
   if (!d.imageOn) {
-    return `<div class="e-hero flow">${head ? `<div class="e-hero-head">${head}</div>` : ''}${teams}</div>`;
+    return `<div class="e-hero flow" data-plan="hero">${head ? `<div class="e-hero-head">${head}</div>` : ''}${teams}</div>`;
   }
   // картинка задаёт высоту hero (ширина всегда 600)
   const pic = d.image
     ? `<img class="e-hero-pic" src="${esc(d.image)}" alt="${esc(d.alt)}" width="600">`
     : `<div class="e-hero-pic empty"><span>Картинка hero · 600×610<br>загружает дизайнер</span></div>`;
   const overlay = head ? `<div class="e-hero-head">${head}</div>` : '';
-  return `<div class="e-hero ${d.teamsOn ? `t${b.v}` : ''}"><div class="e-hero-frame">${pic}${overlay}</div>${teams}</div>`;
+  return `<div class="e-hero ${d.teamsOn ? `t${b.v}` : ''}" data-plan="hero"><div class="e-hero-frame">${pic}${overlay}</div>${teams}</div>`;
 }

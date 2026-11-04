@@ -5,7 +5,7 @@ import snapshot from '../../../n8n/tools/fixtures/html_gen.plugin-v5.js?raw';
 import { patchForApp, runHtmlGen } from '../../../n8n/tools/html-gen.ts';
 import { planBody, type Draft } from './planner';
 import { mountEmail } from './raster';
-import type { BoxItem, PlanItem, TextItem } from './types';
+import type { BoxItem, BtnItem, ColsItem, HeroItem, ImgItem, PlanItem, TextItem } from './types';
 
 const htmlGen = patchForApp(snapshot);
 
@@ -104,4 +104,94 @@ test('снимки: ключи уникальны и все используют
   expect(new Set(keys).size).toBe(keys.length);
   const json = JSON.stringify(d.body);
   for (const k of keys) expect(json).toContain(`"${k}"`);
+});
+
+// --- подсказки data-plan (задача 7)
+
+test('hero: одна картинка main, зоны лого и лиги', async () => {
+  const { body, shots } = await planOf([]);   // hero по умолчанию: hv 0 (лого · дата · лига)
+  const h = body.items[0] as HeroItem;
+  expect(h.k).toBe('hero');
+  expect(shots.find((s) => s.key === h.file)!.base).toBe('main');
+  expect(h.zones.map((z) => z.ln)).toEqual(['https://20bet.com', 'https://www.google.com/']);
+  for (const z of h.zones) { expect(z.y).toBeGreaterThanOrEqual(h.y); expect(z.y + z.h).toBeLessThanOrEqual(h.y + h.h + 0.5); }
+});
+
+test('hero со ссылкой лого из поля', async () => {
+  const doc = { ...createEmail('20bet', 'blank'), blocks: [createBlock('hero', 3, { imageOn: false, logoLink: 'https://x.com/promo' })] };
+  const f = await mountEmail(doc);
+  const h = planBody(f, doc).body.items[0] as HeroItem;
+  f.remove();
+  expect(h.zones.map((z) => z.ln)).toEqual(['https://x.com/promo', 'https://www.google.com/']);
+});
+
+test('кнопка: подложка без текста, живая надпись, заглушка ссылки, бортик', async () => {
+  const d = await planOf([createBlock('cta', 0)]);
+  const b = find(d, 'btn') as BtnItem;
+  expect(text(b.text as TextItem)).toBe('Bet Now');
+  expect(b.ln).toBe('https://www.google.com/');
+  expect(b.bg).toMatch(/^#shot/);
+  expect(d.shots.find((s) => s.key === b.bg)).toMatchObject({ base: 'btn', mode: 'nobg' });
+  expect(b.pad[1]).toBeGreaterThan(b.pad[0]);
+  expect(b.text.runs.every((r) => !r.ln)).toBe(true);
+});
+
+test('кнопка внутри блока — тоже btn', async () => {
+  const d = await planOf([createBlock('bullets', 9, { cta: 'Play', link: 'https://x.com' })]);
+  const b = find(d, 'btn') as BtnItem;
+  expect([text(b.text as TextItem), b.ln]).toEqual(['Play', 'https://x.com']);
+});
+
+test('коэффициенты: 3 равные колонки; в рамке — 2 линии', async () => {
+  const a = find(await planOf([createBlock('odds', 0)]), 'cols') as ColsItem;
+  expect(a.cells).toHaveLength(3);
+  expect(a.shares).toBeUndefined();
+  const d = await planOf([createBlock('odds', 1)]);
+  const c = find(d, 'cols') as ColsItem;
+  expect(c.dividers).toHaveLength(2);
+  expect(all(d, 'box').some((b) => (b as BoxItem).content === c)).toBe(true);
+});
+
+test('факты: строка статистики — колонки, подпись посередине шире', async () => {
+  const c = find(await planOf([createBlock('facts', 0)]), 'cols') as ColsItem;
+  expect(c.cells).toHaveLength(3);
+  expect(c.shares![1]).toBeGreaterThan(c.shares![0]);
+  expect(c.shares![0]).toBe(c.shares![2]);
+});
+
+test('таймер: картинка со ссылкой, подпись — текстом', async () => {
+  const d = await planOf([createBlock('timer', 0)]);
+  const img = (all(d, 'img') as ImgItem[]).find((i) => base(d, i) === 'timer')!;
+  expect(img.ln).toBe('https://www.google.com/');
+  expect((all(d, 'text') as TextItem[]).map(text)).toContain('Срок действия предложения:');
+});
+
+test('иннер и разделитель — картинки', async () => {
+  const d = await planOf([createBlock('inner', 2), createBlock('separator', 3)]);
+  const bases = (all(d, 'img') as ImgItem[]).map((i) => base(d, i));
+  expect(bases).toContain('banner');
+  expect(bases).toContain('sep');
+  expect((all(d, 'text') as TextItem[]).map(text)).not.toContain('Liverpool');
+});
+
+test('футер: лого, платёжки, сторы, почта, отписка', async () => {
+  const d = await planOf([]);
+  const imgs = all(d, 'img') as ImgItem[];
+  expect(imgs.find((i) => base(d, i) === 'logo')!.ln).toBe('https://20bet.com');
+  expect(imgs.find((i) => base(d, i) === 'payments')!.ln).toBeUndefined();
+  expect(imgs.filter((i) => ['apple', 'android'].includes(base(d, i)!)).map((i) => [i.alt, i.ln])).toEqual([
+    ['Download on the App Store', 'https://www.google.com/'], ['Get it on Google Play', 'https://www.google.com/']]);
+  const runs = (all(d, 'text') as TextItem[]).flatMap((t) => t.runs);
+  expect(runs.find((r) => r.t === 'support@20bet.com')!.ln).toBe('mailto:support@20bet.com');
+  expect(runs.find((r) => r.t === 'Unsubscribe')!.ln).toBe('{{unsubscribe}}');
+});
+
+test('ни одной пустой ссылки и # в шаблоне', async () => {
+  const doc = createEmail('20bet', 'sport-match');
+  const f = await mountEmail(doc);
+  const d = planBody(f, doc);
+  f.remove();
+  const html = await runHtmlGen(htmlGen, payloadOf(d));
+  expect(html).not.toContain('href="#"');
+  expect(html).not.toContain('href=""');
 });

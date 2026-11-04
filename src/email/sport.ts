@@ -24,7 +24,7 @@ function factRow(it: Item, n: number) {
       return `${form(it.l)}<span class="lb">${esc(it.label)}${it.sub ? `<small>${esc(it.sub)}</small>` : ''}</span>${form(it.r)}`;
     case 'h2h': {
       const labels = split(it.labels);
-      return `${it.title ? `<div class="h2t">${esc(it.title)}</div>` : ''}<div class="h2">${split(it.vals).map((v, i) =>
+      return `${it.title ? `<div class="h2t">${esc(it.title)}</div>` : ''}<div class="h2" data-plan="cols">${split(it.vals).map((v, i) =>
         `<span><b>${esc(v)}</b><small>${esc(labels[i] ?? '')}</small></span>`).join('')}</div>`;
     }
     case 'text':
@@ -52,7 +52,9 @@ export function renderFacts(b: Block) {
   let n = 0;
   const body = rows.map((it) => {
     if (it.t === 'fact') n++;
-    return `<div class="row r-${it.t ?? 'stat'}${boxed ? ' e-frame' : ''}">${factRow(it, n)}</div>`;
+    // «цифры — подпись — цифры» и форма команд в письме — колонки
+    const cols = !it.t || it.t === 'stat' || it.t === 'form' ? ' data-plan="cols"' : '';
+    return `<div class="row r-${it.t ?? 'stat'}${boxed ? ' e-frame' : ''}"${cols}>${factRow(it, n)}</div>`;
   }).join(sepHtml(v, d.sep));
   const title = d.title ? `<div class="tt">${br(d.title)}</div>` : '';
   const inner = framed ? `<div class="frame e-frame">${v === 6 ? title : ''}${body}</div>` : body;
@@ -75,6 +77,8 @@ export function renderMultibet(b: Block) {
 }
 
 // --- Иннер: картинка (дата уже на ней) и команды — строкой под ней, гербами на ней или в рамке
+// В письме для рассылки — одна картинка banner: подписи команд вшиваются, как у матч-баннера
+const BANNER = 'data-plan="img" data-plan-name="banner"';
 
 export function renderInner(b: Block) {
   const d = b.data;
@@ -90,14 +94,14 @@ export function renderInner(b: Block) {
   const t2 = esc(d.team2);
   switch (b.v) {
     case 2:
-      return `<div class="e-pad"><div class="e-in i2"><div class="ban-w">${pic}${teams ? `<div class="in-ov">${crest('team1')}${crest('team2')}</div>` : ''}</div>
+      return `<div class="e-pad"><div class="e-in i2" ${BANNER}><div class="ban-w">${pic}${teams ? `<div class="in-ov">${crest('team1')}${crest('team2')}</div>` : ''}</div>
         ${teams ? `<div class="nms"><span>${t1}</span><span>${t2}</span></div>` : ''}</div></div>`;
     case 3:
-      return `<div class="e-pad"><div class="e-in i3"><div class="ban-w">${pic}
+      return `<div class="e-pad"><div class="e-in i3" ${BANNER}><div class="ban-w">${pic}
         ${teams ? `<div class="in-ov">${crest('team1')}<div class="nm">${t1} ${vs}<br>${t2}</div>${crest('team2')}</div>` : ''}</div></div></div>`;
     default: {
       const names = b.v === 1 ? `${t1} ${vs}<br>${t2}` : `${t1} ${vs} ${t2}`;
-      return `<div class="e-pad"><div class="e-in i${b.v}"><div class="ban-w">${pic}</div>
+      return `<div class="e-pad"><div class="e-in i${b.v}" ${BANNER}><div class="ban-w">${pic}</div>
         ${teams ? `<div class="tm">${crest('team1')}<div class="nm">${names}</div>${crest('team2')}</div>` : ''}</div></div>`;
     }
   }
