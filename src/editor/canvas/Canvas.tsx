@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { clientName } from '@/email/blocks';
 import { runChecks } from '@/email/checks';
 import { CLIENTS, catalogOf, isRequired, isSingle } from '@/model/catalog';
+import { dragZone, zonesOf, zonesValue, ZONE_KINDS, type ZoneKind, type ZoneRect } from '@/model/heroZones';
 import { HERO_HEADERS } from '@/model/presets';
 import type { Block, EmailDoc } from '@/model/types';
 import { canShift, useEditor } from '@/store/editor';
@@ -104,6 +105,9 @@ export function Canvas() {
               {selected && byId.get(selected) && rectOf(selected) && (
                 <Selection block={byId.get(selected)!} rect={rectOf(selected)!} doc={doc} />
               )}
+              {!dragging && selected && byId.get(selected) && rectOf(selected) && (
+                <HeroZones block={byId.get(selected)!} rect={rectOf(selected)!} zoom={zoom} />
+              )}
               {dropY != null && dragging && <div className="ov-drop" style={{ top: dropY }} />}
             </div>
           </div>
@@ -142,6 +146,49 @@ function AddButton({ block, rect, doc }: { block: Block; rect: BlockRect; doc: E
         <Plus size={13} strokeWidth={2.5} />Блок
       </button>
     </Tip>
+  );
+}
+
+const ZONE_LABEL: Record<ZoneKind, string> = { logo: 'Лого → ссылка', league: 'Лига → заглушка' };
+
+/** Рамки зон клика у hero «без хедера»: тянуть — сдвиг, уголок — размер. Пока тянем — черновик, в письмо — по отпусканию. */
+function HeroZones({ block, rect, zoom }: { block: Block; rect: BlockRect; zoom: number }) {
+  const [live, setLive] = useState<{ k: ZoneKind; r: ZoneRect } | null>(null);
+  const drag = useRef<{ k: ZoneKind; mode: 'move' | 'resize'; from: ZoneRect; sx: number; sy: number } | null>(null);
+  if (block.type !== 'hero' || Number(block.data.hv) !== 7 || !block.data.imageOn) return null;
+  const zones = zonesOf(block.data);
+  // у холста CSS zoom: экранные пиксели → пиксели письма
+  const at = (e: React.PointerEvent) => {
+    const d = drag.current!;
+    return dragZone(d.from, (e.clientX - d.sx) / zoom, (e.clientY - d.sy) / zoom, d.mode, { w: 600, h: rect.height });
+  };
+  const down = (k: ZoneKind, mode: 'move' | 'resize') => (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drag.current = { k, mode, from: zones[k]!, sx: e.clientX, sy: e.clientY };
+  };
+  const move = (e: React.PointerEvent) => { if (drag.current) setLive({ k: drag.current.k, r: at(e) }); };
+  const up = (e: React.PointerEvent) => {
+    if (!drag.current) return;
+    const r = at(e), k = drag.current.k;
+    drag.current = null;
+    setLive(null);
+    useEditor.getState().setData(block.id, { zones: zonesValue({ ...zones, [k]: r }) });
+  };
+  return (
+    <>
+      {ZONE_KINDS.filter((k) => zones[k]).map((k) => {
+        const [x, y, w, h] = live?.k === k ? live.r : zones[k]!;
+        return (
+          <div key={k} className="ov-zone" style={{ left: x, top: rect.top + y, width: w, height: h }}
+            onPointerDown={down(k, 'move')} onPointerMove={move} onPointerUp={up}>
+            <span>{ZONE_LABEL[k]}</span>
+            <i onPointerDown={down(k, 'resize')} />
+          </div>
+        );
+      })}
+    </>
   );
 }
 

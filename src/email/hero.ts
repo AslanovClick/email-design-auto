@@ -1,6 +1,7 @@
 // Hero по компонентам Figma ([hero] Top Banner): картинка с игроками, поверх неё хедер
 // (лого клиента, дата, лига), гербы команд заходят на нижний край картинки или стоят строкой с VS.
 
+import { ZONE_KINDS, zonesOf } from '@/model/heroZones';
 import { clientLogo, clientPreset, clientSite } from '@/model/presets';
 import type { Block, BlockData, EmailDoc } from '@/model/types';
 import { hexToRgb } from './theme';
@@ -79,6 +80,19 @@ export function heroTeams(b: Block) {
   return `<div class="e-tm under ${big ? 'big' : ''}">${col(t1, l1)}${col(t2, l2)}</div>`;
 }
 
+/**
+ * Зоны клика поверх картинки «без хедера»: лого и лига нарисованы на ней самой. В превью невидимы
+ * (рамки рисует редактор), в письме — ссылки на картинке hero: лого — своя ссылка или сайт, лига — заглушка.
+ */
+function zonesHtml(d: BlockData, doc: EmailDoc) {
+  const z = zonesOf(d);
+  return ZONE_KINDS.filter((k) => z[k]).map((k) => {
+    const [x, y, w, h] = z[k]!;
+    const href = k === 'logo' ? esc(d.logoLink || clientSite(doc.client)) : '';
+    return `<i class="e-zone" data-zone="${k}" data-plan-zone="${href}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"></i>`;
+  }).join('');
+}
+
 export function renderHero(b: Block, doc: EmailDoc) {
   const d = b.data;
   const head = headerRow(Number(d.hv), d, doc);
@@ -91,6 +105,6 @@ export function renderHero(b: Block, doc: EmailDoc) {
   const pic = d.image
     ? `<img class="e-hero-pic" src="${esc(d.image)}" alt="${esc(d.alt)}" width="600">`
     : `<div class="e-hero-pic empty"><span>Картинка hero · 600×610<br>загружает дизайнер</span></div>`;
-  const overlay = head ? `<div class="e-hero-head">${head}</div>` : '';
+  const overlay = head ? `<div class="e-hero-head">${head}</div>` : zonesHtml(d, doc);
   return `<div class="e-hero ${d.teamsOn ? `t${b.v}` : ''}" data-plan="hero"><div class="e-hero-frame">${pic}${overlay}</div>${teams}</div>`;
 }

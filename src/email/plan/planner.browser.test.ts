@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import { createBlock, createEmail } from '@/model/factory';
+import { SAMPLE_HERO } from '@/model/presets';
 import type { Block } from '@/model/types';
 import snapshot from '../../../n8n/tools/fixtures/html_gen.plugin-v5.js?raw';
 import { patchForApp, runHtmlGen } from '../../../n8n/tools/html-gen.ts';
@@ -125,6 +126,30 @@ test('hero со ссылкой лого из поля', async () => {
   expect(h.zones.map((z) => z.ln)).toEqual(['https://x.com/promo', 'https://www.google.com/']);
 });
 
+test('hero «без хедера» из шаблона: зоны на нарисованных лого и лиге', async () => {
+  const doc = createEmail('20bet', 'sport-match');
+  const f = await mountEmail(doc);
+  const h = planBody(f, doc).body.items[0] as HeroItem;
+  f.remove();
+  expect(h.zones.map((z) => [z.ln, Math.round(z.x), Math.round(z.y), Math.round(z.w), Math.round(z.h)])).toEqual([
+    ['https://20bet.com', 24, 22, 136, 60], ['https://www.google.com/', 432, 20, 146, 66]]);
+  expect(h.h).toBe(622);   // зоны не раздувают hero
+});
+
+test('hero «без хедера»: свои зоны и ссылка с лого; выключенные — нет зон', async () => {
+  const hero = (over: object) => createBlock('hero', 0, { imageOn: true, hv: 7, teamsOn: false, image: SAMPLE_HERO.url, ...over });
+  const zonesFor = async (over: object) => {
+    const doc = { ...createEmail('20bet', 'blank'), blocks: [hero(over)] };
+    const f = await mountEmail(doc);
+    const h = planBody(f, doc).body.items[0] as HeroItem;
+    f.remove();
+    return h.zones.map((z) => [z.ln, Math.round(z.x), Math.round(z.y)]);
+  };
+  expect(await zonesFor({ zones: '{"logo":[40,30,100,50]}', logoLink: 'https://x.com/p' })).toEqual([['https://x.com/p', 40, 30]]);
+  expect(await zonesFor({ zones: '{}' })).toEqual([]);
+  expect(await zonesFor({})).toEqual([]);   // своя картинка — зон шаблона нет
+});
+
 test('кнопка: подложка без текста, живая надпись, заглушка ссылки, бортик', async () => {
   const d = await planOf([createBlock('cta', 0)]);
   const b = find(d, 'btn') as BtnItem;
@@ -209,6 +234,13 @@ test('блочный потомок в тексте — с новой строк
   const d = await planOf([createBlock('facts', 0)]);
   const texts = (all(d, 'text') as TextItem[]).map(text);
   expect(texts).toContain('Динамика\n5 последних матчей');
+});
+
+test('высота строки текста — по самому крупному шрифту в ней («W1» 22px + «2.10» 34px)', async () => {
+  const c = find(await planOf([createBlock('odds', 0)]), 'cols') as ColsItem;
+  const t = c.cells[0] as TextItem;
+  expect(text(t)).toBe('W1 2.10');
+  expect(t.h).toBeGreaterThanOrEqual(34 * 1.15 - 1);
 });
 
 test('факты: средняя колонка вмещает подпись с запасом', async () => {

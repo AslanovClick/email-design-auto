@@ -362,8 +362,10 @@ class Planner {
     const cb = this.contentBox(el);
     const { n, box } = this.visualLines(el);
     const emTop = this.f.emRect.top, emLeft = this.f.emRect.left;
-    // высота — строками текста; элемент, растянутый выше своих строк (флекс), — по центру текста
-    const want = n * Number(st.lh) * st.fs;
+    // высота — строками текста (строка — по самому крупному шрифту в ней: «W1» 22px + «2.10» 34px);
+    // элемент, растянутый выше своих строк (флекс), — по центру текста
+    const line = Math.max(...runs.map((r) => Number(r.d.lh ?? st.lh) * (r.d.fs ?? st.fs)), Number(st.lh) * st.fs);
+    const want = n * line;
     let y = cb.y, h = cb.h;
     if (h > want + 2) { h = want; y = box.top - emTop + box.height / 2 - want / 2; }
     // одна строка — рамка по тексту (как авто-ширина в Figma), несколько — ширина блока, текст переносится
