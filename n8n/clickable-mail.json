@@ -1,0 +1,369 @@
+{
+  "name": "Clickable Mail → HTML",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ddde128f-8159-4203-95fa-70d0560844ad",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        300
+      ],
+      "id": "3cba7e97-3839-4fd0-86ab-aad56d92aaab",
+      "name": "Webhook",
+      "webhookId": "ddde128f-8159-4203-95fa-70d0560844ad"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Картинки из запроса Clickable Mail → элементы для FTP (по одному на файл) с бинарными данными.\n// Вебхук открыт всем, поэтому имена проверяются до FTP: только папки cm/… (картинки писем плагина не трогаем),\n// только безопасные символы и расширения картинок, без «..». Любая ошибка — один элемент kind:'error' с текстом.\n// Картинок нет — один элемент kind:'none', чтобы цепочка дошла до html_gen.\nconst body = $('Webhook').first().json.body || {};\nconst FOLDER = /^cm(\\/[A-Za-z0-9_-][A-Za-z0-9._-]*)+$/;\nconst FILE = /^[A-Za-z0-9_-][A-Za-z0-9._-]*\\.(png|jpe?g|gif)$/;\nconst MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif' };\nconst MAX_N = 60, MAX_MB = 5;\nconst fail = error => [{ json: { kind: 'error', error } }];\n\nif (!body.plan) return fail('В запросе нет plan');\nconst nodes = body.imageNodes || [];\nif (!Array.isArray(nodes)) return fail('imageNodes — не массив');\nif (nodes.length > MAX_N) return fail(`Картинок ${nodes.length} — больше ${MAX_N}`);\n\nconst out = [], seen = {};\nfor (const n of nodes) {\n  const folder = String(n.folder || ''), file = String(n.file || '');\n  if (folder.indexOf('cm/') !== 0) return fail(`Папка «${folder}» не начинается с cm/ — запрос не из Clickable Mail`);\n  if (!FOLDER.test(folder) || folder.indexOf('..') !== -1) return fail(`Недопустимая папка «${folder}»`);\n  if (!FILE.test(file) || file.indexOf('..') !== -1) return fail(`Недопустимое имя файла «${file}»`);\n  const ftpName = folder.split('/').join('--') + '--' + file;\n  if (seen[ftpName]) continue;\n  seen[ftpName] = true;\n  const buf = Buffer.from(String(n.bgImageData || ''), 'base64');\n  if (!buf.length) return fail(`Картинка «${file}» пустая`);\n  if (buf.length > MAX_MB * 1024 * 1024) return fail(`Картинка «${file}» больше ${MAX_MB} МБ`);\n  const mime = MIME[file.split('.').pop().toLowerCase()];\n  out.push({ json: { kind: 'image', ftpName }, binary: { data: await this.helpers.prepareBinaryData(buf, file, mime) } });\n}\nreturn out.length ? out : [{ json: { kind: 'none' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "id": "569092f6-726a-42a7-a035-7fee27573e96",
+      "name": "Подготовка картинок",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "32ad2f09-f663-4f3f-9a71-b5de904baaa8",
+              "leftValue": "={{ $json.kind }}",
+              "rightValue": "error",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        440,
+        300
+      ],
+      "id": "d4847ed3-a78f-452a-861a-bcee21b0ded1",
+      "name": "Ошибка в запросе?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fc055d37-0481-43f2-b346-286fed39e0fa",
+              "leftValue": "={{ $json.kind }}",
+              "rightValue": "image",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        660,
+        400
+      ],
+      "id": "14225f08-bcf4-4332-8fe1-2c13a8590591",
+      "name": "Есть картинки?"
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "path": "=/public_html/email_images/{{ $json.ftpName }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        880,
+        300
+      ],
+      "id": "7a9e243f-7912-4981-bb7c-7749d92cf6e4",
+      "name": "FTP",
+      "credentials": {
+        "ftp": {
+          "id": "k2Er5gljEUnhmCRt",
+          "name": "FTP account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Все картинки прошли FTP → один элемент для html_gen. Хоть одна не загрузилась — ошибка (уходит в «Ошибка»),\n// чтобы приложение не получило HTML со ссылкой на несуществующую картинку.\nconst items = $input.all();\nconst bad = items.find(i => i.json.error);\nif (bad) {\n  const e = bad.json.error;\n  throw new Error('FTP: картинка не загрузилась: ' + (typeof e === 'string' ? e : (e && e.message) || 'ошибка'));\n}\nreturn [{ json: { uploaded: items.length } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        300
+      ],
+      "id": "bec83122-5247-489e-b8dd-bae87b3b64e1",
+      "name": "Все загружены",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// === Генератор HTML письма v5 (n8n Code node) ===\n// Вход: body вебхука. Плагин v5 присылает plan (planEmail в code.js) — раскладываем его по шаблонам\n// ручной вёрстки: колонка 600 со строками-отступами, текст стилем на <td>, кнопки «подложка + <a>»,\n// баннер «фон + зоны клика». Копия для Clickable Mail: без plan — ошибка, есть прехедер.\nconst body = $('Webhook').first().json.body;\nif (!body.plan) throw new Error('В запросе нет plan');\n\nconst plan = body.plan;\nconst BASE = 'https://demo.promo/sv/public_html/email_images/';\n// Картинки лежат прямо в email_images/ без подпапок (FTP сам папки не создаёт): имя письма — часть имени\n// файла, «Папка/Фрейм» + «bg.png» → «Папка--Фрейм--bg.png». Тот же путь собирает узел upload img WinSCP.\nconst prefix = String(plan.folder || 'email').replace(/\\//g, '--');\nconst url = file => BASE + encodeURIComponent(prefix + '--' + file);   // без ?v= — версию у ссылок не ставим (пользователь)\n\n// ── правила брендов (поверх общих); бренд — по названию файла Figma («22Bet…», «_main_22Bet…»; 22Bit — другой бренд) ──\n// 22bet: кнопки — шрифт 32px и отступ текста по бокам 20px; заголовки и текст — ровно 20px по бокам;\n//        блок коэффициентов — отступ по бокам 8% ширины; слово «КОЕФ» («Коэф.») в текст не выводим\nconst BRAND_RULES = {\n  '22bet': { btnFont: 32, btnPadX: 20, textSide: 20, oddsPad: 0.08, dropKoef: true }\n};\nconst BRAND_KEY = (() => {\n  const s = String(body.fileName || body.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '');\n  return Object.keys(BRAND_RULES).find(b => s.indexOf(b) !== -1) || '';\n})();\nconst BR = BRAND_RULES[BRAND_KEY] || {};\nconst R = Math.round;\nconst TEXT_SIDE = 24;   // минимальный отступ заголовков и абзацев от краёв колонки письма (больший из макета остаётся)\nconst esc =s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst BG_FIT = 'background-size:100% 100% !important;background-repeat:no-repeat !important;background-position:left top !important;';\n// секция выше своей картинки (наехавший заголовок ниже баннера): картинка по ширине сверху, без растягивания\nconst BG_TOP = 'background-size:100% auto !important;background-repeat:no-repeat !important;background-position:center top !important;';\n// фон всего письма (bg.png): cover — если в почтовике письмо выйдет длиннее макета, фон не растягивается, а заполняет\nconst BG_COVER = 'background-size:cover !important;background-repeat:no-repeat !important;background-position:left top !important;';\n\n// ── мини-DOM: элементы собираются деревом и печатаются с отступами ──\nconst BLOCK = { html: 1, head: 1, body: 1, table: 1, tr: 1, td: 1, style: 1 };\nconst VOID = { img: 1, br: 1, meta: 1 };\nfunction h(tag, attrs, ...children) { return { tag, attrs: attrs || {}, children: children.flat().filter(c => c != null && c !== '') }; }\nfunction attrsHtml(a) {\n  return Object.keys(a).filter(k => a[k] != null && a[k] !== false && a[k] !== '').map(k => a[k] === true ? ` ${k}` : ` ${k}=\"${a[k]}\"`).join('');\n}\nfunction isBlock(n) { return n && typeof n === 'object' && BLOCK[n.tag]; }\nfunction inline(n) {\n  if (typeof n === 'string') return n;\n  if (VOID[n.tag]) return `<${n.tag}${attrsHtml(n.attrs)}>`;\n  return `<${n.tag}${attrsHtml(n.attrs)}>${n.children.map(inline).join('')}</${n.tag}>`;\n}\nfunction print(n, depth) {\n  const pad = '  '.repeat(depth);\n  if (typeof n === 'string') return pad + n;\n  if (!n.children.some(isBlock)) return pad + inline(n);\n  return `${pad}<${n.tag}${attrsHtml(n.attrs)}>\\n` + n.children.map(c => print(c, depth + 1)).join('\\n') + `\\n${pad}</${n.tag}>`;\n}\n// фиксированная ширина таблицы дублируется в min-width (как у верстальщика): иначе почтовик может её сжать\nconst table = (attrs, ...rows) => {\n  if (attrs.style && !/min-width:/.test(attrs.style)) attrs.style = attrs.style.replace(/(^|;)width:(\\d+)px;/, '$1width:$2px;min-width:$2px;');\n  return h('table', Object.assign({ border: 0, cellpadding: 0, cellspacing: 0 }, attrs), ...rows);\n};\n\n// ── стили ──\nfunction padCss(t, r, b, l) {\n  [t, r, b, l] = [t, r, b, l].map(v => Math.max(0, R(v || 0)));\n  if (!t && !r && !b && !l) return '';\n  if (t && !r && !b && !l) return `padding-top:${t}px;`;\n  const px = v => (v ? v + 'px' : '0');\n  if (r === l) return b ? `padding:${px(t)} ${px(r)} ${px(b)};` : `padding:${px(t)} ${px(r)} 0;`;\n  return `padding:${px(t)} ${px(r)} ${px(b)} ${px(l)};`;\n}\n// порядок свойств — как в ручной вёрстке: color, font-family, font-weight, line-height, font-size, text-transform\nfunction textCss(st) {\n  return `color:${st.c};font-family:${st.ff};font-weight:${st.fw};line-height:${st.lh};font-size:${st.fs}px;`\n    + (st.tt ? `text-transform:${st.tt};` : '') + (st.ls ? `letter-spacing:${st.ls};` : '') + (st.dec ? `text-decoration:${st.dec};` : '');\n}\n// текст ячейки, как у верстальщика: <td> — выравнивание и отступы, стиль — на <span>\n// (display:block — высоту строки задаёт сам текст, а не шрифт ячейки по умолчанию)\nfunction textEl(it) {\n  return h('span', { style: textCss(it.st) + 'display:block;' }, textInner(it));\n}\nfunction diffCss(d, skip) {\n  let s = '';\n  if (d.c && !(skip && skip.c)) s += `color:${d.c};`;\n  if (d.ff) s += `font-family:${d.ff};`;\n  if (d.fs) s += `font-size:${d.fs}px;`;\n  if (d.fw) s += `font-weight:${d.fw};`;\n  if (d.lh) s += `line-height:${d.lh};`;\n  if (d.tt) s += `text-transform:${d.tt};`;\n  if (d.dec && !(skip && skip.dec)) s += `text-decoration:${d.dec};`;\n  return s;\n}\n// бренд без слова «КОЕФ» (22bet): «КОЕФ 2.22», «Коэф.: 7.77» → «2.22», «7.77»; «коэффициент» не трогаем\nconst KOEF_RE = /(коэф|коеф|кэф)(?![а-яёa-z])\\.?:?\\s*/gi;\nfunction textInner(it, noLinks) {\n  const runs = BR.dropKoef ? it.runs.map(r => Object.assign({}, r, { t: r.t.replace(KOEF_RE, '') })).filter(r => r.t) : it.runs;\n  return runs.map(r => {\n    const t = esc(r.t).replace(/\\r\\n|\\r|\\n|\\u2028/g, '<br>');\n    if (r.ln && !noLinks) {\n      // у ссылки цвет и подчёркивание всегда явно: почтовики иначе красят ссылки в синий\n      const c = r.d.c || it.st.c, dec = r.d.dec || it.st.dec || 'none';\n      return `<a href=\"${esc(r.ln)}\" target=\"_blank\" style=\"color:${c};text-decoration:${dec};${diffCss(r.d, { c: 1, dec: 1 })}\">${t}</a>`;\n    }\n    const s = diffCss(r.d);\n    return s ? `<span style=\"${s}\">${t}</span>` : t;\n  }).join('');\n}\nfunction borderCss(bd) {\n  if (!bd) return '';\n  const [t, r, b, l] = bd.w;\n  if (t === r && r === b && b === l) return t ? `border:${t}px solid ${bd.c};` : '';\n  return ['top', 'right', 'bottom', 'left'].map((s, i) => bd.w[i] ? `border-${s}:${bd.w[i]}px solid ${bd.c};` : '').join('');\n}\nfunction radiusCss(r) {\n  if (Array.isArray(r)) return r.some(Boolean) ? `border-radius:${r.map(v => v + 'px').join(' ')};` : '';\n  return r ? `border-radius:${r}px;` : '';\n}\n\n// ── размещение элемента в контейнере [cx, cx+cw] ──\n// ca — выравнивание детей столбика в Figma (MIN/MAX): строки списка встают по одному краю, а не по центру каждая\nfunction place(it, cx, cw, ca) {\n  const pl = it.x - cx, pr = cx + cw - (it.x + it.w);\n  let align = ca === 'MIN' ? 'left' : ca === 'MAX' ? 'right' : Math.abs(pl - pr) <= 3 ? 'center' : (pl < pr ? 'left' : 'right');\n  // текст, который переносится по ширине блока (или многострочный с другим выравниванием) — ограничиваем ширину отступами\n  if (it.k === 'text' && (it.wrap || (it.lines > 1 && it.ta !== align))) {\n    const ta = it.ta === 'justify' ? 'left' : it.ta;\n    // центрированный текст — отступы по бокам поровну (среднее из макета, ширина текста та же): слой в макете стоит\n    // со сдвигом на пару пикселей, и выходило «padding:15px 14px 0 15px» / «0 0 0 3px» (карточки бонусов, test block 4/prod 13)\n    if (ta === 'center') { const m = (pl + pr) / 2; return { align: ta, pl: m, pr: m }; }\n    return { align: ta, pl, pr };\n  }\n  if (align === 'center') return { align, pl: 0, pr: 0 };\n  return align === 'left' ? { align, pl, pr: 0 } : { align, pl: 0, pr };\n}\n\n// ── элементы ──\n// inRow — картинка в ряду («1 2 3»: иконка + текст, форма команды) — обычный <img>.\n// Картинка без ссылки отдельным блоком — фоном таблицы с пустой ячейкой высотой картинки, как у верстальщика:\n// у <img> без ссылки Gmail показывает стрелку «скачать». Со ссылкой (логотип, сторы, таймер) — <a><img>.\nlet rowDepth = 0;   // >0 — рисуем содержимое ряда (в т.ч. вложенные столбики: «5» над иконкой в таблице статистики)\nfunction imgEl(it, inRow) {\n  if (it.content && it.content.length) return heroEl(it);   // картинка с элементами поверх → фон секции\n  // в ряду <img> только у мелких картинок списков (до 120px); крупная (картинка слота 216px рядом с текстом) — фоном\n  if (!it.ln && (!(inRow || rowDepth) || it.w > 120 || it.h > 120)) {\n    const w = R(it.w);\n    return table({ width: w, background: url(it.file), style: `width:${w}px;${BG_FIT}` },\n      h('tr', {}, h('td', { style: `width:${w}px;padding-top:${R(it.h)}px;` })));\n  }\n  // явные размеры и min-width: иначе max-width:100% из <style> письма сжимает картинку по ширине, когда соседний\n  // текст шире макета (иконка в капсуле «lera.vip@20bet.com» выходила сплющенной, test block 4/prod 6)\n  const img = h('img',{ src: url(it.file), width: R(it.w), height: R(it.h), alt: esc(it.alt || ''), style: `display:block;border:0;width:${R(it.w)}px;min-width:${R(it.w)}px;height:${R(it.h)}px;` });\n  return it.ln ? h('a', { href: esc(it.ln), target: '_blank', style: `display:block;width:${R(it.w)}px;` }, img) : img;\n}\nfunction lineEl(it) {\n  const w = R(it.w), th = Math.max(1, R(it.h));\n  return table({ width: w, style: `width:${w}px;` },\n    h('tr', {}, h('td', { height: th, bgcolor: it.c, style: `height:${th}px;font-size:0;line-height:0;background-color:${it.c};` }, '&nbsp;')));\n}\n// зона клика на баннере, как у верстальщика: пустая ссылка ширины логотипа, высота — паддингами сверху и снизу\nfunction zoneLink(p) {\n  const hh = R(p.h), top = Math.floor(hh / 2);\n  return h('a', { href: esc(p.ln), target: '_blank', style: `display:block;width:${R(p.w)}px;padding-top:${top}px;padding-bottom:${hh - top}px;` });\n}\nfunction heroEl(it) {\n  // фон-картинка + строки поверх: зоны клика (прозрачные <a>) и элементы, сгруппированные по высоте —\n  // зона и элемент на одной высоте (логотип слева, дата матча по центру) стоят в одной строке рядом\n  const W = R(it.w);\n  const parts = (it.zones || []).map(z => ({ k: 'zone', x: z.x, y: z.y, w: z.w, h: z.h, ln: z.ln })).concat(it.content || []);\n  parts.sort((a, b) => a.y - b.y || a.x - b.x);\n  const groups = [];\n  parts.forEach(p => {\n    const g = groups.find(g => p.y < g.bottom - 2 && p.y + p.h > g.top + 2 && g.items.every(o => p.x >= o.x + o.w - 2 || p.x + p.w <= o.x + 2));\n    if (g) { g.items.push(p); g.top = Math.min(g.top, p.y); g.bottom = Math.max(g.bottom, p.y + p.h); }\n    else groups.push({ items: [p], top: p.y, bottom: p.y + p.h });\n  });\n  const rows = [];\n  let cur = it.y;\n  groups.forEach(g => {\n    if (g.items.length === 1 && g.items[0].k !== 'zone') {\n      stackRows(g.items, it.x, it.w, cur, null, 0, TEXT_SIDE).forEach(tr => rows.push(tr));\n    } else if (g.items.length === 1) {\n      // один логотип в строке — одна ячейка: выравнивание и отступы на <td>, без пустых ячеек по бокам\n      const p = g.items[0], pl = place(p, it.x, it.w);\n      rows.push(h('tr', {}, h('td', { align: pl.align, valign: 'top', style: padCss(g.top - cur, pl.pr, 0, pl.pl) }, zoneLink(p))));\n    } else {\n      // ячейки по X; вертикальный сдвиг каждой — отступом от верха строки\n      let x = it.x;\n      const cells = [];\n      g.items.sort((a, b) => a.x - b.x).forEach(p => {\n        const gap = R(p.x - x);\n        if (gap >= 1) cells.push(h('td', { width: gap, style: `width:${gap}px;` }));\n        const pad = padCss(p.y - g.top, 0, 0, 0);\n        if (p.k === 'zone') {\n          cells.push(h('td', { width: R(p.w), valign: 'top', style: `width:${R(p.w)}px;${pad}` }, zoneLink(p)));\n        } else {\n          cells.push(h('td', { width: R(p.w), valign: 'top', align: p.k === 'text' ? (p.ta === 'justify' ? 'left' : p.ta) : null,\n            style: `width:${R(p.w)}px;${pad}` }, inner(p)));\n        }\n        x = p.x + p.w;\n      });\n      const tail = R(it.x + it.w - x);\n      if (tail >= 1) cells.push(h('td', { width: tail, style: `width:${tail}px;` }));\n      rows.push(h('tr', {}, h('td', { style: padCss(g.top - cur, 0, 0, 0) }, table({ width: W, style: `width:${W}px;` }, h('tr', {}, cells)))));\n    }\n    cur = Math.max(cur, g.bottom);\n  });\n  const rest = R(it.y + it.h - cur);\n  // остаток высоты баннера — паддингом пустой ячейки, как у верстальщика (<td style=\"padding-top:390px;\"></td>):\n  // height у пустой ячейки почтовики читают по-разному, padding — везде\n  if (rest > 0 || !rows.length) rows.push(h('tr', {}, h('td', { style: `padding-top:${Math.max(rest, 1)}px;` })));\n  return table({ width: W, background: url(it.file), style: `width:${W}px;${it.overflow ? BG_TOP : BG_FIT}` }, rows);\n}\n\nfunction btnEl(it) {\n  const W = R(it.w);\n  let t = it.text;\n  const bw = it.border ? (it.border.w[1] + it.border.w[3]) : 0;\n  let [pt, pb] = it.pad;\n  const bt = it.border ? it.border.w[0] : 0, bb = it.border ? it.border.w[2] : 0;\n  let px = 0;\n  if (BR.btnFont) {\n    // бренд: надпись кнопки — свой кегль (22bet 32px), высота кнопки как в макете — надпись по центру\n    t = Object.assign({}, t, { st: Object.assign({}, t.st, { fs: BR.btnFont, lh: '1.2' }),\n      runs: t.runs.map(r => Object.assign({}, r, { d: Object.assign({}, r.d, { fs: undefined, lh: undefined }) })) });\n    pt = pb = Math.max(0, (it.h - BR.btnFont * 1.2) / 2);\n  }\n  if (BR.btnPadX) px = BR.btnPadX;   // отступ надписи от краёв кнопки (22bet 20px)\n  const a = h('a', { href: esc(it.ln), target: '_blank',\n    style: `display:block;width:${W - bw - 2 * px}px;${padCss(pt - bt, px, pb - bb, px)}${textCss(t.st)}text-decoration:none;text-align:center;` }, textInner(t, true));   // надпись без своих ссылок: ссылка в ссылке ломается\n  const tAttrs = it.bg\n    ? { width: W, background: url(it.bg), style: `width:${W}px;${BG_FIT}` }\n    : { width: W, bgcolor: it.fill, style: `width:${W}px;background-color:${it.fill};${radiusCss(it.r)}${borderCss(it.border)}` };\n  return table(tAttrs, h('tr', {}, h('td', { align: 'center', valign: 'middle' }, a)));\n}\nfunction boxEl(it) {\n  const W = R(it.w);\n  const bd = it.border ? it.border.w : [0, 0, 0, 0];\n  const ix = it.x + bd[3], iw = it.w - bd[1] - bd[3], iy = it.y + bd[0], ih = it.h - bd[0] - bd[2];\n  const attrs = { width: W };\n  let style = `width:${W}px;`;\n  if (it.fill) { attrs.bgcolor = it.fill; style += `background-color:${it.fill};`; }\n  if (it.bg) { attrs.background = url(it.bg); style += it.overflow ? BG_TOP : BG_FIT; }\n  style += borderCss(it.border) + radiusCss(it.r);\n  attrs.style = style;\n  const c = it.content;\n  let td;\n  if (!c) {\n    td = h('td', { height: R(ih), style: `height:${R(ih)}px;font-size:0;line-height:0;` }, '&nbsp;');\n  } else if (c.k === 'stack') {\n    const rows = stackRows(c.items, ix, iw, iy);\n    const pb = it.y + it.h - bd[2] - (c.y + c.h);\n    td = h('td', { valign: 'top', style: padCss(0, 0, pb, 0) }, table({ width: R(iw), style: `width:${R(iw)}px;` }, rows));\n  } else {\n    const p = place(c, ix, iw);\n    const pt = c.y - iy, pb = iy + ih - (c.y + c.h);\n    td = h('td', { align: p.align, valign: 'top', style: padCss(pt, p.pr, pb, p.pl) }, inner(c));\n  }\n  return table(attrs, h('tr', {}, td));\n}\nfunction rowEl(it) {\n  let prev = it.x;\n  rowDepth++;\n  const cells = it.cells.map(c => {\n    const gap = Math.max(0, R(c.x - prev));\n    prev = c.x + c.w;\n    let style = gap ? `padding-left:${gap}px;` : '';\n    const attrs = { valign: it.va };\n    if (c.k === 'text') {\n      attrs.align = c.ta === 'justify' ? 'left' : c.ta;\n      if (c.wrap) style += `width:${R(c.w)}px;`;\n    }\n    if (c.k === 'img') { attrs.width = R(c.w); style += `width:${R(c.w)}px;min-width:${R(c.w)}px;`; }   // ячейка картинки не сжимается\n    attrs.style = style;\n    return h('td', attrs, c.k === 'img' ? imgEl(c, true) : inner(c));\n  });\n  rowDepth--;\n  return table({}, h('tr', {}, cells));\n}\nfunction stackEl(it) {\n  return table({ width: R(it.w), style: `width:${R(it.w)}px;` }, stackRows(it.items, it.x, it.w, it.y, it.ca));\n}\n// Ряд коэффициентов — равные колонки на всю ширину блока, содержимое по центру, по бокам отступ COL_PAD;\n// вертикальные линии — узкими ячейками между колонками. Широкий коэффициент («22.22») не ломает ряд.\nconst COL_PAD = 8;\n// shares — ширины колонок (по умолчанию поровну), aligns — выравнивание (по умолчанию по центру),\n// pad — отступы у крайних колонок от краёв блока (ряд «значение | подпись | значение», по умолчанию COL_PAD)\nfunction colsEl(it) {\n  // бренд: ряд коэффициентов (колонки поровну) — отступ по бокам доля ширины блока (22bet 8%)\n  if (BR.oddsPad && !it.shares && !it.inset) {\n    const W0 = R(it.w), P = R(W0 * BR.oddsPad);\n    return table({ width: W0, style: `width:${W0}px;` }, h('tr', {}, h('td', { align: 'center', style: `padding:0 ${P}px;` },\n      colsEl(Object.assign({}, it, { w: W0 - 2 * P, inset: true })))));\n  }\n  const W = R(it.w), n = it.cells.length;\n  const divs = it.dividers || [];\n  const divW = divs.reduce((s, l) => s + Math.max(1, R(l.w)), 0);\n  const shares = it.shares || it.cells.map(() => 1);\n  const total = shares.reduce((s, v) => s + v, 0);\n  const widths = shares.map(s => Math.floor((W - divW) * s / total));\n  widths[n - 1] = W - divW - widths.slice(0, n - 1).reduce((s, v) => s + v, 0);\n  const parts = it.cells.map(c => ({ c, div: false })).concat(divs.map(l => ({ c: l, div: true }))).sort((a, b) => a.c.x - b.c.x);\n  let k = 0;\n  const tds = parts.map(p => {\n    if (p.div) {\n      const w = Math.max(1, R(p.c.w));\n      return h('td', { width: w, valign: 'middle', style: `width:${w}px;` }, lineEl(p.c));\n    }\n    const i = k++, w = widths[i];\n    const pl = i === 0 && it.pad ? R(it.pad[0]) : COL_PAD, pr = i === n - 1 && it.pad ? R(it.pad[1]) : COL_PAD;\n    const align = (it.aligns && it.aligns[i]) || 'center';\n    const pad = pl === pr ? `padding:0 ${pl}px;` : `padding:0 ${pr}px 0 ${pl}px;`;\n    return h('td', { width: w, align, valign: 'middle', style: `width:${w - pl - pr}px;${pad}` }, colInner(p.c, align));\n  });\n  return table({ width: W, style: `width:${W}px;` }, h('tr', {}, tds));\n}\n// содержимое колонки — по выравниванию колонки (по умолчанию по центру), без отступов из макета\nfunction colInner(c, align) {\n  align = align || 'center';\n  if (c.k === 'text') return textEl(c);\n  if (c.k === 'row') { const t = rowEl(c); t.attrs.align = align; return t; }\n  if (c.k === 'stack') {\n    let prev = c.y;\n    return table({ width: '100%' }, c.items.map(x => {\n      const pt = x.y - prev;\n      prev = Math.max(prev, x.y + x.h);\n      return h('tr', {}, h('td', { align, style: padCss(pt, 0, 0, 0) }, x.k === 'row' ? colInner(x, align) : inner(x)));\n    }));\n  }\n  return inner(c);\n}\n// Колонки многострочного текста «строка к строке» — таблица: каждая строка текста своей <tr>\n// (длинная строка справа переносится — ряд растёт целиком, пары строк не расходятся)\nfunction gridEl(it) {\n  const W = R(it.w), last = it.cols.length - 1;\n  const rows = it.rows.map(cells => h('tr', {}, cells.map((c, ci) => {\n    const col = it.cols[ci];\n    const gap = ci ? Math.max(0, R(col.x - (it.cols[ci - 1].x + it.cols[ci - 1].w))) : 0;\n    const style = (gap ? `padding-left:${gap}px;` : '') + (ci < last ? `width:${R(col.w)}px;` : '');\n    return h('td', { align: col.ta, valign: 'top', style }, c ? textEl(c) : '&nbsp;');\n  })));\n  return table({ width: W, style: `width:${W}px;` }, rows);\n}\nfunction inner(it) {\n  switch (it.k) {\n    case 'cols': return colsEl(it);\n    case 'grid': return gridEl(it);\n    case 'text': return textEl(it);\n    case 'img': return imgEl(it);\n    case 'hero': return heroEl(it);\n    case 'btn': return btnEl(it);\n    case 'box': return boxEl(it);\n    case 'line': return lineEl(it);\n    case 'row': return rowEl(it);\n    case 'stack': return stackEl(it);\n    default: return '';\n  }\n}\n// строки столбика: отступ сверху = расстояние от предыдущего элемента, по горизонтали — выравнивание/отступы\n// Заголовки и абзацы в колонке письма — не ближе minSide к краям (24px). Больший отступ из макета остаётся.\n// Однострочный текст отступ не переносит: добавляем, только пока строка шириной как в макете помещается.\nfunction textSides(it, p, cw, minSide) {\n  if (it.k !== 'text') return p;\n  // Центрированный текст из узкого текстового слоя («Рекомендуем ставку:» 197px в карточке 580px → отступы по 192px,\n  // test block 3/9): огромные боковые отступы в письме не нужны — по 24px. Переносы строк из макета остаются (<br>).\n  // Порог 120px: отступы футера 66–97px — обычные (у верстальщика в block 1/5 футер padding 0 88px).\n  const side = BR.textSide || TEXT_SIDE;\n  // В колонке письма вправо — только текст, выровненный вправо в самом макете. Слой, просто стоящий не по центру\n  // («100% до 100 EUR» уходил align=right из-за сдвига на 12px), — по центру, как соседние блоки.\n  if (minSide && p.align === 'right' && it.ta !== 'right') p = { align: 'center', pl: 0, pr: 0 };\n  // бренд: заголовки и текст в колонке письма — ровно по BR.textSide с боков (22bet 20px), а не из макета\n  if (BR.textSide && minSide) return { align: p.align, pl: side, pr: side };\n  if (p.align === 'center' && (p.pl > 120 || p.pr > 120)) return { align: 'center', pl: side, pr: side };\n  if (!minSide) return p;\n  const want = [Math.max(0, minSide - p.pl), Math.max(0, minSide - p.pr)];\n  const room = it.wrap ? Infinity : Math.max(0, cw - it.w - p.pl - p.pr);\n  return { align: p.align, pl: p.pl + Math.min(want[0], room / 2), pr: p.pr + Math.min(want[1], room / 2) };\n}\n// pbLast — отступ под последней строкой (низ письма): паддингом её ячейки, как у верстальщика, а не строкой-распоркой\n// Ряд-список «иконка + текст» в колонке письма (как активировать бонус, test block 4/prod 1): отступ справа такой же,\n// как слева — иначе длинная строка доходила до правого края письма без отступа.\nfunction rowSides(it, p, minSide) {\n  if (!minSide || (it.k !== 'row' && it.k !== 'stack')) return p;\n  if (p.align === 'left' && p.pr < p.pl) return { align: p.align, pl: p.pl, pr: p.pl };\n  if (p.align === 'right' && p.pl < p.pr) return { align: p.align, pl: p.pr, pr: p.pr };\n  return p;\n}\nfunction stackRows(items, cx, cw, top, ca, pbLast, minSide) {\n  const rows = [];\n  let prev = top;\n  const real = items.filter(it => it.k !== 'gap');\n  real.forEach((it, i) => {\n    const pt = it.y - prev;\n    prev = Math.max(prev, it.y + it.h);\n    const p = rowSides(it, textSides(it, place(it, cx, cw, ca), cw, minSide), minSide);\n    const style = padCss(pt, p.pr, i === real.length - 1 ? pbLast : 0, p.pl);\n    rows.push(h('tr', {}, h('td', { align: p.align, style }, inner(it))));\n  });\n  return rows;\n}\n\n// ── письмо целиком ──\nconst W = plan.width, items = plan.body ? plan.body.items : [];\nconst last = items.reduce((m, it) => Math.max(m, it.y + it.h), 0);\nconst tail = R(plan.height - last);\nconst rows = stackRows(items, 0, W, 0, null, tail, TEXT_SIDE);\nif (!rows.length && tail > 0) rows.push(h('tr', {}, h('td', { style: `padding-top:${tail}px;` })));\nconst mainAttrs = { width: W, bgcolor: plan.color, style: `width:${W}px;background-color:${plan.color};` + (plan.bg ? BG_COVER : '') };\nif (plan.bg) mainAttrs.background = url(plan.bg);\nconst page = table({ width: '100%' }, h('tr', {}, h('td', { align: 'center' }, table(mainAttrs, rows))));\n\n// прехедер из приложения (у плагина его нет): скрытый текст превью письма в почтовике\nconst preheader = body.preheader ? `<div style=\"display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;\">${esc(body.preheader)}</div>\\n` : '';\nconst html = `<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:v=\"urn:schemas-microsoft-com:vml\" xmlns:o=\"urn:schemas-microsoft-com:office:office\">\n<head>\n  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width\">\n  <meta name=\"x-apple-disable-message-reformatting\">\n  <meta name=\"color-scheme\" content=\"light dark\">\n  <meta name=\"supported-color-schemes\" content=\"light dark\">\n  <title>${esc(plan.title || 'Mail')}</title>\n  <style type=\"text/css\">\n    img { font-size: 0; line-height: 0; display: block; border: none; -ms-interpolation-mode: bicubic; max-width: 100%; }\n    body { font-family: sans-serif; -webkit-font-smoothing: antialiased; margin: 0; padding: 0; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; }\n    table { border-collapse: separate; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }\n  </style>\n</head>\n<body style=\"margin:0;padding:0;\">\n${preheader}${print(page, 0)}\n</body>\n</html>`;\n\nreturn [{ json: { output: html } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        400
+      ],
+      "id": "e4b82b43-8606-4e1c-90cd-5fa6d4b5f8d1",
+      "name": "html_gen",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ответ приложению: HTML, вес и ссылки на картинки (как их собирает html_gen и путь узла FTP).\nconst body = $('Webhook').first().json.body || {};\nconst BASE = 'https://demo.promo/sv/public_html/email_images/';\nconst html = $json.output || '';\nconst images = (body.imageNodes || []).map(n => ({\n  file: n.file,\n  url: BASE + encodeURIComponent(String(n.folder).split('/').join('--') + '--' + n.file)\n}));\nreturn [{ json: { ok: true, html, kb: Math.round(Buffer.byteLength(html, 'utf8') / 102.4) / 10, images } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        400
+      ],
+      "id": "b8ef152c-e5f0-41c6-8dd1-e6ac7dfb4023",
+      "name": "Ответ"
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1760,
+        400
+      ],
+      "id": "464cbb0b-7c2a-4623-8fec-e0d3d44179b3",
+      "name": "Отправить ответ"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ошибка любой ступени → понятный ответ приложению вместо обрыва соединения.\nconst e = $json.error;\nconst error = typeof e === 'string' ? e : (e && e.message) || 'Неизвестная ошибка n8n';\nreturn [{ json: { ok: false, error } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        700
+      ],
+      "id": "1246ae49-3f0c-4f67-8170-49573e8c2378",
+      "name": "Ошибка"
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1760,
+        700
+      ],
+      "id": "ec5cfdd8-44fd-4593-9655-73c070cf8e93",
+      "name": "Отправить ошибку"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Подготовка картинок",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Подготовка картинок": {
+      "main": [
+        [
+          {
+            "node": "Ошибка в запросе?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ошибка",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ошибка в запросе?": {
+      "main": [
+        [
+          {
+            "node": "Ошибка",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Есть картинки?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Есть картинки?": {
+      "main": [
+        [
+          {
+            "node": "FTP",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "html_gen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FTP": {
+      "main": [
+        [
+          {
+            "node": "Все загружены",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Все загружены": {
+      "main": [
+        [
+          {
+            "node": "html_gen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ошибка",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "html_gen": {
+      "main": [
+        [
+          {
+            "node": "Ответ",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ошибка",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ответ": {
+      "main": [
+        [
+          {
+            "node": "Отправить ответ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ошибка": {
+      "main": [
+        [
+          {
+            "node": "Отправить ошибку",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "tags": []
+}
