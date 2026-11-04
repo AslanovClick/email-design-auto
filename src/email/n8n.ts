@@ -4,7 +4,7 @@
 import type { Payload } from './plan/types';
 
 /** Production URL вебхука из узла Webhook воркфлоу (см. n8n/README.md). */
-export const DEFAULT_WEBHOOK = '';
+export const DEFAULT_WEBHOOK = 'https://n8n.clickable.space/webhook/ddde128f-8159-4203-95fa-70d0560844ad';
 
 export const webhookUrl = (): string => import.meta.env.VITE_N8N_WEBHOOK_URL || DEFAULT_WEBHOOK;
 
