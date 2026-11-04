@@ -9,3 +9,4 @@ dist
 .claude/
 *.log
 n8n/out/
+.vitest/

@@ -197,18 +197,26 @@ class Planner {
     return b;
   }
 
-  /** Ряд колонок поровну; «цифры — длинная подпись — цифры» — подпись шире. Линии между колонками — dividers. */
+  /**
+   * Ряд колонок поровну; «цифры — длинная подпись — цифры» — подпись шире. Линии между колонками — dividers.
+   * По ширине — весь блок, по высоте — только ячейки: остальное у плашки становится отступами (плашка 80px).
+   */
   cols(el: Element): PlanItem | null {
     const kids = this.kids(el);
     const isDiv = (k: Element) => (k as HTMLElement).dataset?.plan === 'divider';
     const cellEls = kids.filter((k) => !isDiv(k));
     const cells = cellEls.map((k) => this.walk(k)).filter((x): x is PlanItem => !!x);
+    const dividers = kids.filter(isDiv).map((k) => this.line(k));
+    const parts = [...cells, ...dividers];
     const cb = this.contentBox(el);
-    const cols: ColsItem = { k: 'cols', id: this.id(), ...cb, cells, dividers: kids.filter(isDiv).map((k) => this.line(k)) };
+    const y = parts.length ? Math.min(...parts.map((p) => p.y)) : cb.y;
+    const h = parts.length ? Math.max(...parts.map((p) => p.y + p.h)) - y : cb.h;
+    const cols: ColsItem = { k: 'cols', id: this.id(), x: cb.x, y, w: cb.w, h, cells, dividers };
     if (cells.length === 3 && cellEls.length === 3) {
       const len = cellEls.map((c) => (c.textContent ?? '').trim().length);
       if (len[1] >= 8 && len[1] >= 2 * Math.max(len[0], len[2])) {
-        const e = Math.max(0.2 * cb.w, Math.max(cells[0].w, cells[2].w) + 16);
+        // крайние — по ширине цифр (+ отступы колонок), но не шире 20%; подписи посередине — запас 24px под шрифт почтовика
+        const e = Math.max(Math.max(cells[0].w, cells[2].w) + 16, Math.min(0.2 * cb.w, (cb.w - cells[1].w - 40) / 2));
         cols.shares = [e, cb.w - 2 * e, e];
       }
     }

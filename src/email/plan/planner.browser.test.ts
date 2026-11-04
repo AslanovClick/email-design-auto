@@ -195,3 +195,25 @@ test('ни одной пустой ссылки и # в шаблоне', async (
   expect(html).not.toContain('href="#"');
   expect(html).not.toContain('href=""');
 });
+
+test('плашка коэффициентов: колонки по высоте ячеек — у плашки остаются отступы', async () => {
+  const d = await planOf([createBlock('odds', 1)]);
+  const c = find(d, 'cols') as ColsItem;
+  const box = all(d, 'box').find((b) => (b as BoxItem).content === c)!;
+  const top = Math.min(...c.cells.map((x) => x.y)), bottom = Math.max(...c.cells.map((x) => x.y + x.h));
+  expect([c.y, c.y + c.h]).toEqual([top, bottom]);
+  expect(c.y - box.y).toBeGreaterThan(5);
+});
+
+test('факты: средняя колонка вмещает подпись с запасом', async () => {
+  const doc = createEmail('20bet', 'sport-details');
+  const f = await mountEmail(doc);
+  const d = planBody(f, doc);
+  f.remove();
+  for (const c of all(d, 'cols') as ColsItem[]) {
+    if (!c.shares) continue;
+    const total = c.shares.reduce((s, v) => s + v, 0);
+    const mid = (c.w * c.shares[1]) / total - 16;   // минус COL_PAD по бокам в html_gen
+    if (!(c.cells[1] as TextItem).wrap) expect(mid).toBeGreaterThanOrEqual(c.cells[1].w + 20);
+  }
+});
