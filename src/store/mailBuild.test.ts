@@ -63,6 +63,21 @@ test('ошибка n8n — в error, busy снят, результата нет;
   expect(buildMail).toHaveBeenCalledTimes(1);
 });
 
+test('письмо изменили во время сборки — старая сборка не трогает состояние новой', async () => {
+  reply(ok);
+  let finishA: (() => void) | undefined;
+  const real = vi.mocked(buildMail).getMockImplementation()!;
+  vi.mocked(buildMail).mockImplementationOnce((d) => new Promise((res) => { finishA = () => res(real(d)); }));
+  const a = useMailBuild.getState().build(doc);
+  const b = { ...doc, updatedAt: doc.updatedAt + 5 };
+  vi.mocked(buildMail).mockImplementationOnce(() => new Promise(() => {}));   // сборка B ещё идёт
+  void useMailBuild.getState().prepare(b);
+  await vi.waitFor(() => expect(buildMail).toHaveBeenCalledTimes(2));
+  finishA!();
+  await a;
+  expect(useMailBuild.getState()).toMatchObject({ key: buildKey(b), busy: 'images', result: null });
+});
+
 test('prepare — только картинки и payload, без n8n', async () => {
   reply(ok);
   const b = await useMailBuild.getState().prepare(doc);

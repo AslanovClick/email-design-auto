@@ -19,9 +19,11 @@ export default mergeConfig(
         },
         {
           extends: true,
+          // зависимости, найденные посреди прогона, перезагружают страницу и роняют импорт тестов
+          optimizeDeps: { include: ['react', 'react-dom', 'react-dom/client', 'react/jsx-dev-runtime', 'react/jsx-runtime', '@radix-ui/react-dialog', 'clsx', 'lucide-react', 'zustand', 'jszip'] },
           test: {
             name: 'browser',
-            include: ['src/**/*.browser.test.ts'],
+            include: ['src/**/*.browser.test.{ts,tsx}'],
             testTimeout: 60_000,
             browser: { enabled: true, headless: true, provider: playwright(), instances: [{ browser: 'chromium' }] },
           },

@@ -1,7 +1,7 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import clsx from 'clsx';
 import { Download, FileJson, RotateCw, X } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { GMAIL_LIMIT_KB, runChecks, type Check } from '@/email/checks';
 import { copyHtml, downloadPayload, exportHtml, exportZip } from '@/email/exporter';
 import { webhookUrl } from '@/email/n8n';
@@ -23,6 +23,9 @@ const STEP = { images: 'Готовлю картинки…', send: 'Отправ
 export function ExportDialog({ doc }: { doc: EmailDoc }) {
   const [format, setFormat] = useState<Format>('zip');
   const [open, setOpen] = useState(false);
+  // актуальные «окно открыто» и письмо — для проверки после долгой сборки
+  const live = useRef({ open, doc });
+  live.current = { open, doc };
   const { key, built, result, busy, error, build, prepare } = useMailBuild();
   const c = runChecks(doc);
   // всё, что собрано, — для этой версии письма; после правок — снова оценка
@@ -35,12 +38,15 @@ export function ExportDialog({ doc }: { doc: EmailDoc }) {
   const hook = webhookUrl();
 
   const run = async () => {
+    const at = buildKey(doc);
     let res;
     try {
       res = await build(doc);
     } catch {
       return;   // текст ошибки — в окне, кнопка «Повторить»
     }
+    // окно закрыли или письмо поменяли, пока шла сборка, — не скачиваем (результат остался в кэше)
+    if (!live.current.open || buildKey(live.current.doc) !== at) return;
     try {
       if (format === 'zip') { const n = await exportZip(doc, res); notify(`ZIP собран: HTML и картинок — ${n}`); }
       if (format === 'html') { exportHtml(doc, res); notify('HTML скачан'); }
@@ -52,7 +58,8 @@ export function ExportDialog({ doc }: { doc: EmailDoc }) {
         }
         notify('HTML скопирован в буфер обмена');
       }
-      setOpen(false);
+      // предупреждения планировщика (не загружена картинка и т.п.) — окно остаётся открытым с их списком
+      if (!res.warnings.length) setOpen(false);
     } catch (e) {
       notify(`Не получилось: ${(e as Error).message}`);
     }

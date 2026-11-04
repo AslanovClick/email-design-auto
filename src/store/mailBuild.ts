@@ -72,7 +72,7 @@ export const useMailBuild = create<MailBuildState>()((set, get) => {
       if (s.key === key && s.result) return Promise.resolve(s.result);
       return once(`send:${key}`, async () => {
         const built = await get().prepare(doc);
-        set({ busy: 'send', error: null });
+        if (current(key)) set({ busy: 'send', error: null });
         try {
           const r = await sendToN8n(built.payload);
           const urls = { ...built.urls, ...Object.fromEntries(r.images.map((i) => [i.file, i.url])) };

@@ -205,6 +205,12 @@ test('плашка коэффициентов: колонки по высоте 
   expect(c.y - box.y).toBeGreaterThan(5);
 });
 
+test('блочный потомок в тексте — с новой строки (подпись «Динамика» над «5 последних матчей»)', async () => {
+  const d = await planOf([createBlock('facts', 0)]);
+  const texts = (all(d, 'text') as TextItem[]).map(text);
+  expect(texts).toContain('Динамика\n5 последних матчей');
+});
+
 test('факты: средняя колонка вмещает подпись с запасом', async () => {
   const doc = createEmail('20bet', 'sport-details');
   const f = await mountEmail(doc);

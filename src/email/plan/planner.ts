@@ -292,7 +292,9 @@ class Planner {
   // --- текст
 
   runs(el: Element, st: TextItem['st']): Run[] {
-    const out: (Run | '\n')[] = [];
+    // '\n' — <br>; 'block' — граница блочного потомка (подпись <small style="display:block"> под словом):
+    // перевод строки, как в innerText, но не двойной
+    const out: (Run | '\n' | 'block')[] = [];
     const visit = (n: Node) => {
       if (n.nodeType === 3) {
         const t = n.textContent!.replace(SPACES, ' ');
@@ -304,8 +306,12 @@ class Planner {
         out.push(run);
       } else if (n.nodeType === 1) {
         const e = n as Element;
-        if (e.tagName === 'BR') out.push('\n');
-        else if (this.visible(e)) e.childNodes.forEach(visit);
+        if (e.tagName === 'BR') { out.push('\n'); return; }
+        if (!this.visible(e)) return;
+        const block = !/^(inline|contents)/.test(this.cs(e).display);
+        if (block) out.push('block');
+        e.childNodes.forEach(visit);
+        if (block) out.push('block');
       }
     };
     el.childNodes.forEach(visit);
@@ -313,8 +319,9 @@ class Planner {
     const runs: Run[] = [];
     let br = '';
     for (const r of out) {
-      if (r === '\n') {
+      if (r === '\n' || r === 'block') {
         const last = runs[runs.length - 1];
+        if (r === 'block' && (!last || last.t.endsWith('\n'))) continue;
         if (last) last.t = last.t.replace(/ $/, '') + '\n';
         else br += '\n';
         continue;

@@ -10,8 +10,10 @@ const node = (name: string) => {
   if (!n) throw new Error(`нет узла ${name}`);
   return n;
 };
-// 1×1 PNG
+// 1×1 PNG; начало JPEG (FF D8 FF E0); PHP-скрипт
 const PNG1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+const JPG = '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBD';
+const PHP = Buffer.from('<?php system($_GET["c"]); ?>').toString('base64');
 const helpers = {
   prepareBinaryData: async (buf: Buffer, fileName: string, mimeType: string) => ({ data: buf.toString('base64'), fileName, mimeType }),
 };
@@ -64,7 +66,7 @@ test('Подготовка: картинка → имя на FTP и бинарн
 });
 
 test('Подготовка: jpg — image/jpeg, повтор файла — один раз', async () => {
-  const n = { file: 'main-aaaaaa.jpg', folder: 'cm/x', bgImageData: PNG1 };
+  const n = { file: 'main-aaaaaa.jpg', folder: 'cm/x', bgImageData: JPG };
   const out = await prep([n, n]);
   expect(out).toHaveLength(1);
   expect(out[0].binary.data.mimeType).toBe('image/jpeg');
@@ -85,10 +87,20 @@ test.each([
   [{ folder: 'cm/x', file: '../index.php' }, /имя/],
   [{ folder: 'cm/x', file: 'a.php' }, /имя/],
   [{ folder: 'cm/x', file: '.htaccess.png' }, /имя/],
+  [{ folder: 'cm/x', file: 'shell.php.png' }, /имя/],
+  [{ folder: 'cm/a.php/x', file: 'a.png' }, /папк/],
 ])('Подготовка отклоняет %o', async (n, re) => {
   const [it] = await prep([{ ...n, bgImageData: PNG1 }]);
   expect(it.json.kind).toBe('error');
   expect(it.json.error).toMatch(re);
+});
+
+test.each([
+  ['a.png', PHP], ['a.png', JPG], ['a.jpg', PNG1], ['a.gif', PNG1],
+])('Подготовка: содержимое %s не той картинки — ошибка', async (file, data) => {
+  const [it] = await prep([{ folder: 'cm/x', file, bgImageData: data }]);
+  expect(it.json.kind).toBe('error');
+  expect(it.json.error).toMatch(/не картинка/);
 });
 
 test('Подготовка: пустая картинка — ошибка', async () => {
