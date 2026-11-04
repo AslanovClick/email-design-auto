@@ -197,6 +197,7 @@ select.inp option { background: var(--raised); }
 .dialog { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(500px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; background: var(--panel); border: 1px solid var(--line-2); border-radius: 18px; padding: 22px; display: grid; gap: 14px; z-index: 61; box-shadow: var(--shadow); animation: fade 0.15s; }
 .dialog-head { display: flex; justify-content: space-between; align-items: center; }
 .dialog-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.dialog-foot .btn:disabled { opacity: 0.45; }
 .meter { height: 6px; border-radius: 6px; background: var(--raised-2); overflow: hidden; }
 .meter div { height: 100%; background: var(--ok); border-radius: 6px; }
 .meter.warn div { background: var(--warn); }
@@ -214,12 +215,13 @@ select.inp option { background: var(--raised); }
 .check.click:hover { background: var(--raised); }
 .check .go { margin-left: auto; color: var(--faint); }
 
-.format-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.format-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .format-cards button { border: 1px solid var(--line-2); background: var(--field); border-radius: var(--r); padding: 12px; text-align: left; display: grid; gap: 6px; transition: border-color 0.15s, background 0.15s; }
 .format-cards button:hover { border-color: var(--line-3); }
 .format-cards button.on { border-color: var(--accent); background: var(--accent-soft); }
 .format-cards b { font-size: 12.5px; }
 .format-cards span { font-size: 11px; color: var(--faint); line-height: 1.35; }
+.export-error { font-size: 12.5px; line-height: 1.45; padding: 9px 12px; border-radius: var(--r-sm); border: 1px solid var(--accent); background: var(--accent-soft); }
 .spin { animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 

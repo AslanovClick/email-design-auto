@@ -3,7 +3,7 @@
 
 import { create } from 'zustand';
 import { sendToN8n } from '@/email/n8n';
-import { buildMail, type Built } from '@/email/plan/build';
+import type { Built } from '@/email/plan/build';
 import type { EmailDoc } from '@/model/types';
 
 export interface MailResult extends Built { html: string; kb: number }
@@ -54,6 +54,8 @@ export const useMailBuild = create<MailBuildState>()((set, get) => {
       return once(`images:${key}`, async () => {
         set({ busy: 'images', error: null });
         try {
+          // планировщик и растеризация нужны только при экспорте — отдельный чанк
+          const { buildMail } = await import('@/email/plan/build');
           const built = await buildMail(doc);
           if (current(key)) set({ built, busy: null });
           return built;
