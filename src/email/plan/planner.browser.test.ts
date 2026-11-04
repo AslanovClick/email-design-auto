@@ -150,6 +150,22 @@ test('hero «без хедера»: свои зоны и ссылка с лог�
   expect(await zonesFor({})).toEqual([]);   // своя картинка — зон шаблона нет
 });
 
+test('hero с хедером: сдвинутые лого и лига — зоны клика на новых местах', async () => {
+  const zonesFor = async (over: object) => {
+    const doc = { ...createEmail('20bet', 'blank'), blocks: [createBlock('hero', 0, { imageOn: true, hv: 0, teamsOn: false, image: SAMPLE_HERO.url, ...over })] };
+    const f = await mountEmail(doc);
+    const h = planBody(f, doc).body.items[0] as HeroItem;
+    f.remove();
+    return h.zones;
+  };
+  const [logo, league] = await zonesFor({});
+  const [logo2, league2] = await zonesFor({ pos: '{"logo":[100,200],"league":[-50,30],"date":[0,300]}' });
+  expect([logo2.x - logo.x, logo2.y - logo.y]).toEqual([100, 200]);
+  expect([league2.x - league.x, league2.y - league.y]).toEqual([-50, 30]);
+  expect(logo2.ln).toBe('https://20bet.com');
+  expect(league2.ln).toBe('https://www.google.com/');
+});
+
 test('кнопка: подложка без текста, живая надпись, заглушка ссылки, бортик', async () => {
   const d = await planOf([createBlock('cta', 0)]);
   const b = find(d, 'btn') as BtnItem;

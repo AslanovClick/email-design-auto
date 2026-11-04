@@ -51,3 +51,33 @@ export function dragZone([x, y, w, h]: ZoneRect, dx: number, dy: number, mode: '
   if (mode === 'move') return [clamp(x + dx, 0, b.w - w), clamp(y + dy, 0, b.h - h), w, h];
   return [x, y, clamp(w + dx, MIN, b.w - x), clamp(h + dy, MIN, b.h - y)];
 }
+
+// --- Элементы хедера (лого, дата, лига) можно сдвинуть мышью на превью. В data.pos — смещения [dx, dy] от их
+// места в раскладке хедера. Зоны клика в письме идут за элементами сами: планировщик берёт их реальное место.
+
+export type DragKind = 'logo' | 'date' | 'league';
+export type HeroPos = Partial<Record<DragKind, [number, number]>>;
+
+export const DRAG_KINDS: DragKind[] = ['logo', 'date', 'league'];
+
+const isPair = (v: unknown): v is [number, number] => Array.isArray(v) && v.length === 2 && v.every((n) => typeof n === 'number' && isFinite(n));
+
+export function posOf(d: BlockData): HeroPos {
+  if (typeof d.pos !== 'string') return {};
+  try {
+    const raw = JSON.parse(d.pos) as Record<string, unknown>;
+    return Object.fromEntries(DRAG_KINDS.filter((k) => isPair(raw?.[k])).map((k) => [k, raw[k]])) as HeroPos;
+  } catch {
+    return {};
+  }
+}
+
+export const posValue = (p: HeroPos) => JSON.stringify(p);
+
+/** Новое смещение элемента: el — его рамка сейчас (уже со смещением cur) в координатах hero; не выходит за hero. */
+export function dragPos(cur: [number, number], el: { x: number; y: number; w: number; h: number }, dx: number, dy: number,
+  hero: { w: number; h: number }): [number, number] {
+  const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), Math.max(lo, hi));
+  const x = clamp(el.x + dx, 0, hero.w - el.w), y = clamp(el.y + dy, 0, hero.h - el.h);
+  return [Math.round(cur[0] + x - el.x), Math.round(cur[1] + y - el.y)];
+}

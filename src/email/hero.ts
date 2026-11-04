@@ -1,7 +1,7 @@
 // Hero по компонентам Figma ([hero] Top Banner): картинка с игроками, поверх неё хедер
 // (лого клиента, дата, лига), гербы команд заходят на нижний край картинки или стоят строкой с VS.
 
-import { ZONE_KINDS, zonesOf } from '@/model/heroZones';
+import { ZONE_KINDS, posOf, zonesOf, type DragKind, type HeroPos } from '@/model/heroZones';
 import { clientLogo, clientPreset, clientSite } from '@/model/presets';
 import type { Block, BlockData, EmailDoc } from '@/model/types';
 import { hexToRgb } from './theme';
@@ -45,11 +45,21 @@ const logoHtml = (doc: EmailDoc, d: BlockData) => {
   return `<a class="e-brand" href="${href}" data-plan-zone="${href}"><img src="${esc(clientLogo(doc.client, isLightBg(doc)))}" alt="${esc(clientPreset(doc.client).name)}"></a>`;
 };
 
+/**
+ * Элемент хедера, который можно сдвинуть мышью (только в самом hero, не в миниатюрах): метка data-drag
+ * для редактора и сдвиг translate — раскладку соседей он не трогает, а зона клика в письме встанет на новое место.
+ */
+function draggable(html: string, k: DragKind, pos?: HeroPos) {
+  if (!pos) return html;
+  const [dx, dy] = pos[k] ?? [0, 0];
+  return html.replace(/^<(\w+)/,`<$1 data-drag="${k}"${dx || dy ? ` style="translate:${dx}px ${dy}px"` : ''}`);
+}
+
 /** Хедер: в «3 элементах» дата строго по центру, лого и лига прижаты к краям. */
-export function headerRow(v: number, d: BlockData, doc: EmailDoc) {
-  const logo = logoHtml(doc, d);
-  const lg = leagueHtml(d, doc);
-  const date = renderDate(d);
+export function headerRow(v: number, d: BlockData, doc: EmailDoc, pos?: HeroPos) {
+  const logo = draggable(logoHtml(doc, d), 'logo', pos);
+  const lg = draggable(leagueHtml(d, doc), 'league', pos);
+  const date = draggable(renderDate(d), 'date', pos);
   switch (v) {
     case 1: return `<div class="e-head g3">${logo}<span></span><span class="end">${date}</span></div>`;
     case 2: return `<div class="e-head g3">${logo}</div>`;
@@ -95,7 +105,7 @@ function zonesHtml(d: BlockData, doc: EmailDoc) {
 
 export function renderHero(b: Block, doc: EmailDoc) {
   const d = b.data;
-  const head = headerRow(Number(d.hv), d, doc);
+  const head = headerRow(Number(d.hv), d, doc, posOf(d));
   const teams = d.teamsOn ? heroTeams(b) : '';
   // без картинки hero = хедер (+ команды) в потоке письма
   if (!d.imageOn) {

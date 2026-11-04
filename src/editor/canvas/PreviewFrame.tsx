@@ -4,13 +4,16 @@
 import { useEffect, useRef } from 'react';
 import { EMAIL_CSS } from '@/email/emailCss';
 import { renderEmailBody } from '@/email/render';
+import type { DragKind } from '@/model/heroZones';
 import type { EmailDoc } from '@/model/types';
 
 export interface BlockRect { id: string; top: number; height: number }
+/** Элемент, который можно сдвинуть мышью (лого, дата, лига в хедере hero), — в координатах письма. */
+export interface DragRect { id: string; k: DragKind; x: number; y: number; w: number; h: number }
 
 interface Props {
   doc: EmailDoc;
-  onLayout: (rects: BlockRect[], height: number) => void;
+  onLayout: (rects: BlockRect[], height: number, drags: DragRect[]) => void;
   onHover: (id: string | null) => void;
   onPick: (id: string | null) => void;
   onKey: (e: KeyboardEvent) => void;
@@ -39,9 +42,15 @@ export function PreviewFrame({ doc, onLayout, onHover, onPick, onKey }: Props) {
     const rects = [...r.querySelectorAll<HTMLElement>('[data-block-id]')].map((el) => ({
       id: el.dataset.blockId!, top: el.offsetTop, height: el.offsetHeight,
     }));
+    const base = r.getBoundingClientRect();
+    const drags = [...r.querySelectorAll<HTMLElement>('[data-drag]')].map((el) => {
+      const q = el.getBoundingClientRect();
+      return { id: el.closest<HTMLElement>('[data-block-id]')!.dataset.blockId!, k: el.dataset.drag as DragKind,
+        x: q.left - base.left, y: q.top - base.top, w: q.width, h: q.height };
+    });
     const h = r.scrollHeight;
     f.style.height = `${h}px`;
-    cb.current.onLayout(rects, h);
+    cb.current.onLayout(rects, h, drags);
   };
 
   const paint = () => {

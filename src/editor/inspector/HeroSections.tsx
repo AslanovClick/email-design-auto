@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { clientName, headerRow, heroTeams, renderDate } from '@/email/blocks';
 import { renderBlock } from '@/email/render';
 import { FIELDS, catalogOf } from '@/model/catalog';
-import { DEFAULT_ZONES, zonesOf, zonesValue, type ZoneKind } from '@/model/heroZones';
+import { DEFAULT_ZONES, posOf, posValue, zonesOf, zonesValue, type ZoneKind } from '@/model/heroZones';
 import { DATE_STYLES, HERO_HEADERS, HERO_PRESETS, SAMPLE_HERO, clientSite } from '@/model/presets';
 import type { Block, EmailDoc } from '@/model/types';
 import { useEditor } from '@/store/editor';
@@ -119,6 +119,16 @@ export function HeroSections({ doc, block }: { doc: EmailDoc; block: Block }) {
         {hv === 7 && !!d.imageOn && <ZoneFields doc={doc} block={block} />}
         {WITH_LEAGUE.includes(hv) && <FieldInput block={block} f={F.league} />}
         <div className="hint" style={{ margin: 0 }}>Логотип «{clientName(doc)}» подставляется сам: светлая версия на тёмном фоне, тёмная — на светлом.</div>
+        {hv !== 7 && (
+          <>
+            <div className="hint" style={{ margin: '8px 0 0' }}>Лого, дату и лигу можно перетащить мышью на превью выделенного hero. В письме лого и лига — ссылки на своём месте.</div>
+            {Object.keys(posOf(d)).length > 0 && (
+              <button type="button" className="btn sm block" style={{ marginTop: 8 }} onClick={() => setData(block.id, { pos: posValue({}) })}>
+                Вернуть лого, дату и лигу на места
+              </button>
+            )}
+          </>
+        )}
       </Section>
 
       <Section id="hero-img" title={<><span className="part-n">2</span>Картинка</>} meta={!d.imageOn ? 'скрыта' : d.image ? 'загружена' : 'не загружена'}>

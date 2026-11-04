@@ -5,7 +5,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { clientName } from '@/email/blocks';
 import { runChecks } from '@/email/checks';
 import { CLIENTS, catalogOf, isRequired, isSingle } from '@/model/catalog';
-import { dragZone, zonesOf, zonesValue, ZONE_KINDS, type ZoneKind, type ZoneRect } from '@/model/heroZones';
+import { dragPos, dragZone, posOf, posValue, zonesOf, zonesValue, ZONE_KINDS, type DragKind, type ZoneKind, type ZoneRect } from '@/model/heroZones';
 import { HERO_HEADERS } from '@/model/presets';
 import type { Block, EmailDoc } from '@/model/types';
 import { canShift, useEditor } from '@/store/editor';
@@ -15,7 +15,7 @@ import { dropBridge, type DragData } from '../dnd';
 import { handleHotkey } from '../hotkeys';
 import { NO_DEL, NO_DUP } from '../messages';
 import { LayersPanel } from '../layers/LayersPanel';
-import { PreviewFrame, type BlockRect } from './PreviewFrame';
+import { PreviewFrame, type BlockRect, type DragRect } from './PreviewFrame';
 
 
 /** Сколько места по горизонтали занято помимо письма: панель слоёв слева и тулбар справа. */
@@ -37,6 +37,7 @@ export function Canvas() {
   const stageRef = useRef<HTMLElement>(null);
   const frameWrap = useRef<HTMLDivElement>(null);
   const [rects, setRects] = useState<BlockRect[]>([]);
+  const [drags, setDrags] = useState<DragRect[]>([]);
   const [hover, setHover] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
 
@@ -91,7 +92,7 @@ export function Canvas() {
         <div className="stage-inner" style={{ zoom }}>
           <InboxHeader doc={doc} />
           <div className="frame-wrap" ref={frameWrap} onMouseLeave={() => setHover(null)}>
-            <PreviewFrame doc={doc} onLayout={setRects} onHover={setHover} onPick={onPick}
+            <PreviewFrame doc={doc} onLayout={(r, _h, d) => { setRects(r); setDrags(d); }} onHover={setHover} onPick={onPick}
               onKey={(e) => handleHotkey(e, true)} />
             <div className={clsx('ov', dragging && 'catch')}>
               {[...checks.flagged].map((id) => {
@@ -107,6 +108,9 @@ export function Canvas() {
               )}
               {!dragging && selected && byId.get(selected) && rectOf(selected) && (
                 <HeroZones block={byId.get(selected)!} rect={rectOf(selected)!} zoom={zoom} />
+              )}
+              {!dragging && selected && byId.get(selected) && rectOf(selected) && (
+                <HeroDrag block={byId.get(selected)!} rect={rectOf(selected)!} zoom={zoom} drags={drags.filter((d) => d.id === selected)} />
               )}
               {dropY != null && dragging && <div className="ov-drop" style={{ top: dropY }} />}
             </div>
@@ -185,6 +189,49 @@ function HeroZones({ block, rect, zoom }: { block: Block; rect: BlockRect; zoom:
             onPointerDown={down(k, 'move')} onPointerMove={move} onPointerUp={up}>
             <span>{ZONE_LABEL[k]}</span>
             <i onPointerDown={down(k, 'resize')} />
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+const DRAG_LABEL: Record<DragKind, string> = { logo: 'Лого', date: 'Дата', league: 'Лига' };
+
+/** Лого, дата и лига хедера выделенного hero — тянутся мышью; в письме лого и лига — ссылки на новом месте. */
+function HeroDrag({ block, rect, zoom, drags }: { block: Block; rect: BlockRect; zoom: number; drags: DragRect[] }) {
+  const [live, setLive] = useState<{ k: DragKind; p: [number, number] } | null>(null);
+  const drag = useRef<{ k: DragKind; cur: [number, number]; el: DragRect; sx: number; sy: number } | null>(null);
+  if (block.type !== 'hero' || !drags.length) return null;
+  const pos = posOf(block.data);
+  const at = (e: React.PointerEvent) => {
+    const d = drag.current!;
+    // рамка элемента — в координатах hero; у холста CSS zoom: экранные пиксели → пиксели письма
+    return dragPos(d.cur, { ...d.el, y: d.el.y - rect.top }, (e.clientX - d.sx) / zoom, (e.clientY - d.sy) / zoom, { w: 600, h: rect.height });
+  };
+  const down = (el: DragRect) => (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drag.current = { k: el.k, cur: pos[el.k] ?? [0, 0], el, sx: e.clientX, sy: e.clientY };
+  };
+  const move = (e: React.PointerEvent) => { if (drag.current) setLive({ k: drag.current.k, p: at(e) }); };
+  const up = (e: React.PointerEvent) => {
+    if (!drag.current) return;
+    const p = at(e), k = drag.current.k;
+    drag.current = null;
+    setLive(null);
+    useEditor.getState().setData(block.id, { pos: posValue({ ...pos, [k]: p }) });
+  };
+  return (
+    <>
+      {drags.map((el) => {
+        const cur = pos[el.k] ?? [0, 0];
+        const [dx, dy] = live?.k === el.k ? [live.p[0] - cur[0], live.p[1] - cur[1]] : [0, 0];
+        return (
+          <div key={el.k} className="ov-zone drag" style={{ left: el.x + dx, top: el.y + dy, width: el.w, height: el.h }}
+            onPointerDown={down(el)} onPointerMove={move} onPointerUp={up} title="Перетащите — лого и лига в письме станут ссылками на новом месте">
+            <span>{DRAG_LABEL[el.k]}</span>
           </div>
         );
       })}

@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { ASSET } from './presets';
-import { DEFAULT_ZONES, dragZone, zonesOf, zonesValue } from './heroZones';
+import { DEFAULT_ZONES, dragPos, dragZone, posOf, posValue, zonesOf, zonesValue } from './heroZones';
 
 const tpl = ASSET('samples/tpl/sport1-hero.png');
 
@@ -32,4 +32,20 @@ test('перетаскивание: сдвиг и размер не выходя
   expect(dragZone([24, 22, 136, 60], -500, -500, 'resize', b)).toEqual([24, 22, 16, 16]);
   expect(dragZone([500, 22, 50, 60], 300, 0, 'resize', b)).toEqual([500, 22, 100, 60]);
   expect(dragZone([24.4, 22.6, 136, 60], 0.4, 0.4, 'move', b)).toEqual([25, 23, 136, 60]);
+});
+
+test('смещения элементов хедера: свои, испорченные — нет', () => {
+  expect(posOf({})).toEqual({});
+  expect(posOf({ pos: posValue({ logo: [10, -4], date: [0, 30] }) })).toEqual({ logo: [10, -4], date: [0, 30] });
+  expect(posOf({ pos: '{"logo":[1,"x"],"league":[5,6]}' })).toEqual({ league: [5, 6] });
+  expect(posOf({ pos: 'oops' })).toEqual({});
+});
+
+test('перетаскивание элемента хедера: смещение в пределах hero', () => {
+  // элемент 100×40 стоит в (24, 18) уже со смещением [4, 0]; hero 600×622
+  const el = { x: 24, y: 18, w: 100, h: 40 }, hero = { w: 600, h: 622 };
+  expect(dragPos([4, 0], el, 30, 50, hero)).toEqual([34, 50]);
+  expect(dragPos([4, 0], el, -100, -100, hero)).toEqual([-20, -18]);
+  expect(dragPos([4, 0], el, 1000, 1000, hero)).toEqual([480, 564]);
+  expect(dragPos([0, 0], el, 10.6, 0.4, hero)).toEqual([11, 0]);
 });
