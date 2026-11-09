@@ -33,7 +33,7 @@ function snippet(b: Block): string {
     case 'text': return cut([b.v <= 2 && d.titleOn !== false ? d.title : '', d.kicker && b.v === 4 ? d.kicker : '', d.offer && b.v === 4 ? d.offer : '', b.v === 3 ? d.note : '', b.v !== 4 ? d.text : ''].filter(Boolean).join(' · '));
     case 'cta': return `«${d.text}»`;
     case 'facts': return `${d.title} · строк: ${n('rows')}`;
-    case 'bullets': return b.v === 3 ? `шагов: ${n('steps')}` : b.v === 10 ? `карточек: ${n('cards')}` : cut(`${d.title} · ${d.sub}`);
+    case 'bullets': return b.v === 3 || b.v === 11 ? `шагов: ${n('steps')}` : b.v === 10 ? `карточек: ${n('cards')}` : cut(`${d.title} · ${d.sub}`);
     case 'timer': return cut(d.title);
     case 'odds': return 'коэффициенты — примерные';
     case 'recodds': return 'ставка — примерная';

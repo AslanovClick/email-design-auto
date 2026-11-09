@@ -86,7 +86,9 @@ export function renderContent(b: Block) {
       return `<div class="e-pad"><div class="e-ct rows c2">${items.map((it) =>
         `<div class="it">${imgOr(it.image, 'pic', it.title)}<div><b>${esc(it.title)}</b><span>${esc(it.text)}</span></div></div>`).join('')}</div></div>`;
     case 3:
-      return `<div class="e-pad"><div class="e-ct rows c3">${withPics(d, parseItems(d.steps, STEP_ITEMS)).map((it) =>
+    case 11:
+      // 11 — те же шаги, но колонка на всю ширину: длинному тексту и выделению больше места
+      return `<div class="e-pad"><div class="e-ct rows c3${b.v === 11 ? ' wide' : ''}">${withPics(d, parseItems(d.steps, STEP_ITEMS)).map((it) =>
         `<div class="it">${imgOr(it.image, 'pic')}<span>${withAccent(it.text)}</span></div>`).join('')}</div></div>`;
     case 8:
       // без картинки карточка просто без неё — заглушка тут только мешает

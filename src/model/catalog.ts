@@ -27,7 +27,8 @@ export const CATALOG: CatalogItem[] = [
   // [text] Bullet points + картинка с текстом и кнопкой
   { type: 'bullets', name: 'Контент', group: 'Контент',
     variants: ['Иконки в ряд', 'Крупные карточки', 'Список с офферами', 'Шаги по порядку', 'Картинка слева', 'Картинка справа',
-      'Картинка слева с кнопкой', 'Картинка справа с кнопкой', 'Карточка бонуса', 'Картинка сверху', 'Бонусы карточками'] },
+      'Картинка слева с кнопкой', 'Картинка справа с кнопкой', 'Карточка бонуса', 'Картинка сверху', 'Бонусы карточками',
+      'Шаги на всю ширину'] },
   // [text] Facts — оформление; строки внутри настраиваются отдельно, есть пресеты
   { type: 'facts', name: 'Факты игр', group: 'Спорт',
     variants: ['Детали с полосами', 'Нумерованный список', 'Строки под дугой', 'Факты в общей рамке',
@@ -65,7 +66,7 @@ const VARIANT_FIELDS: Partial<Record<BlockType, string[][]>> = {
     ['items'], ['items'], ['items'], ['steps'],
     ['image', 'alt', 'title', 'sub', 'text'], ['image', 'alt', 'title', 'sub', 'text'],
     ['image', 'alt', 'title', 'sub', 'text', 'cta', 'link'], ['image', 'alt', 'title', 'sub', 'text', 'cta', 'link'],
-    ['image', 'alt', 'title', 'big', 'sub'], ['image', 'alt', 'title', 'text', 'cta', 'link'], ['cards'],
+    ['image', 'alt', 'title', 'big', 'sub'], ['image', 'alt', 'title', 'text', 'cta', 'link'], ['cards'], ['steps'],
   ],
   recodds: [
     ['pick', 'coef'], ['pick', 'coef'], ['pick', 'coef'], ['pick', 'coef', 'suffix'],

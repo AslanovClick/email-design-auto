@@ -130,8 +130,12 @@ export function buildEmail(brief: Brief, clientId: string): { doc: EmailDoc; pla
         break;
       case 'steps':
         add('text', 1, { title: s.title, titleOn: true, text: '' });
-        // картинки шагов (иконки) подставит дизайнер; суммы и названия латиницей сразу выделяем
-        if (s.steps.length) add('bullets', 3, { steps: itemsValue(s.steps.map((text) => ({ image: '', text: accentStep(text) }))) });
+        // картинки шагов (иконки) подставит дизайнер; суммы и названия латиницей сразу выделяем.
+        // Длинные шаги — в вариант на всю ширину: в колонке 400 они растягиваются на 4–5 строк
+        if (s.steps.length) {
+          const long = s.steps.some((t) => t.length > 50);
+          add('bullets', long ? 11 : 3, { steps: itemsValue(s.steps.map((text) => ({ image: '', text: accentStep(text) }))) });
+        }
         break;
       case 'timer':
         add('timer', 0, s.title ? { title: s.title } : {});

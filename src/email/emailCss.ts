@@ -84,7 +84,7 @@ export const EMAIL_CSS = `
 .em .e-dt.d2 { background: var(--card); border-left: 2px solid var(--acc); border-right: 2px solid var(--acc); border-radius: var(--rad); height: 42px; min-width: 96px; padding: 0 12px; justify-content: center; font-size: 24px; }
 .em .e-dt.d3 { background: var(--card); border: 2px solid var(--acc); border-radius: var(--rad); padding: 8px 12px; gap: 6px; }
 .em .e-dt.d3 .r { display: inline-flex; align-items: center; gap: 8px; font-size: 24px; color: var(--txt); }
-.em .e-dt.d3 svg { color: var(--acc); width: 20px; height: 21px; }
+.em .e-dt.d3 svg { color: var(--acc); width: 18px; height: 20px; }
 .em .e-dt.d3 i { width: 100px; }
 .em .e-dt.d3 .t { font-size: 18px; }
 .em .e-dt.d4 { background: var(--card); border: 2px solid var(--acc); border-radius: var(--rad); height: 40px; min-width: 92px; padding: 0 10px; justify-content: center; font-size: 24px; }
@@ -265,7 +265,7 @@ export const EMAIL_CSS = `
 .em .e-ct img, .em .e-ct .e-ph { display: block; }
 .em .e-ph { background: repeating-linear-gradient(45deg, rgba(255,255,255,.10) 0 8px, rgba(255,255,255,.04) 8px 16px); border-radius: var(--rad); }
 .em .e-ct.cols { display: flex; justify-content: center; gap: 18px; }
-.em .e-ct.cols .it { width: 141px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.em .e-ct.cols .it { width: 140px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
 .em .e-ct.cols .it .pic { width: 100px; height: 100px; object-fit: contain; }
 .em .e-ct.cols .it b { color: var(--acc); font-size: 18px; }
 .em .e-ct.cols .it span { font-size: 15px; line-height: 1.3; }
@@ -278,22 +278,23 @@ export const EMAIL_CSS = `
 .em .e-ct.rows .it .pic { width: 100px; height: 100px; object-fit: cover; border-radius: var(--rad); flex: none; }
 .em .e-ct.c2 .it b { display: block; color: var(--acc); font-size: 32px; line-height: 1.1; }
 .em .e-ct.c2 .it span { font-size: 20px; }
-/* шаги — как в макете: узкая колонка по центру, иконка (обычно с прозрачным фоном) и текст в 2–3 строки */
-.em .e-ct.c3 { width: 420px; max-width: 100%; margin: 0 auto; gap: 22px; }
-.em .e-ct.c3 .it { gap: 18px; }
-.em .e-ct.c3 .it .pic { width: 110px; height: 90px; object-fit: contain; border-radius: 0; }
+/* шаги — по макету Figma (auto layout 400 × hug, gap 32): иконка 100×100 с прозрачным фоном, отступ 12, текст 24/29 */
+.em .e-ct.c3 { width: 400px; max-width: 100%; margin: 0 auto; gap: 32px; }
+.em .e-ct.c3 .it { gap: 12px; }
+.em .e-ct.c3 .it .pic { width: 100px; height: 100px; object-fit: contain; border-radius: 0; }
 .em .e-ct.c3 .it .pic.e-ph { border-radius: var(--rad); }
-.em .e-ct.c3 .it span { font-size: 22px; line-height: 1.3; }
+.em .e-ct.c3 .it span { font-size: 24px; line-height: 29px; }
+.em .e-ct.c3.wide { width: 100%; }
 .em .hl { color: var(--acc); font-weight: 700; }
 .em .e-ct.mirror { display: flex; align-items: center; gap: 14px; }
-.em .e-ct.mirror .side { width: 141px; height: 141px; object-fit: cover; border-radius: 8px; flex: none; }
-.em .e-ct.mirror .side.lg { width: 204px; height: 204px; }
+.em .e-ct.mirror .side { width: 140px; height: 140px; object-fit: cover; border-radius: 8px; flex: none; }
+.em .e-ct.mirror .side.lg { width: 200px; height: 200px; }
 .em .e-ct.mirror .tx { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .em .e-ct .t { color: var(--acc); font-size: 22px; text-transform: uppercase; }
 .em .e-ct .s { color: var(--acc); font-size: 17px; }
 .em .e-ct.mirror p { margin: 0 0 6px; font-size: 16px; line-height: 1.35; }
 .em .e-ct.c8 { display: flex; justify-content: center; padding-top: 24px; }
-.em .e-ct.c8 .card { width: 245px; padding: 0 12px 16px; border-radius: var(--rad); display: flex; flex-direction: column; align-items: center; text-align: center; text-transform: uppercase; }
+.em .e-ct.c8 .card { width: 240px; padding: 0 12px 16px; border-radius: var(--rad); display: flex; flex-direction: column; align-items: center; text-align: center; text-transform: uppercase; }
 .em .e-ct.c8 .card .pic { width: 150px; height: 150px; object-fit: contain; margin-top: -30px; }
 .em .e-ct.c8 .t { font-size: 18px; }
 .em .e-ct.c8 .big { color: var(--acc); font-size: 64px; line-height: 1; }
@@ -306,14 +307,14 @@ export const EMAIL_CSS = `
 /* футер */
 .em .e-ft { padding: 36px 20px 30px; display: flex; flex-direction: column; align-items: center; gap: 28px; text-align: center; color: var(--txt); font-family: var(--font); }
 .em .e-ft .logo-a { display: block; margin-bottom: -18px; }
-.em .e-ft .logo { max-height: 55px; max-width: 230px; display: block; }
-.em .e-ft .pay { display: block; max-width: 399px; height: auto; }
+.em .e-ft .logo { max-height: 56px; max-width: 230px; display: block; }
+.em .e-ft .pay { display: block; max-width: 400px; height: auto; }
 .em .e-ft .apps { display: flex; flex-direction: column; align-items: center; gap: 16px; }
 .em .e-ft .apps > b { font-size: 18px; }
 .em .e-ft .row { display: flex; align-items: center; gap: 12px; }
-.em .e-ft .amp { font-size: 24px; }
-.em .e-ft .app { display: inline-flex; align-items: center; gap: 10px; width: 182px; height: 52px; padding-left: 16px; border: 1px solid var(--acc); border-radius: var(--btn-rad, 8px); text-align: left; font-size: 14px; line-height: 15px; }
-.em .e-ft .legal { width: 437px; max-width: 100%; font-size: 14px; line-height: 1.35; }
+.em .e-ft .amp { font-size: 24px; width: 20px; text-align: center; }
+.em .e-ft .app { display: inline-flex; align-items: center; gap: 10px; width: 180px; height: 52px; padding-left: 16px; border: 1px solid var(--acc); border-radius: var(--btn-rad, 8px); text-align: left; font-size: 14px; line-height: 15px; }
+.em .e-ft .legal { width: 440px; max-width: 100%; font-size: 14px; line-height: 1.35; }
 .em .e-ft .legal p { margin: 0 0 16px; }
 .em .e-ft .legal p:last-child { margin: 0; }
 .em .e-ft a { color: var(--acc); text-decoration: none; }
@@ -321,13 +322,13 @@ export const EMAIL_CSS = `
 .em .e-ft.vip { gap: 6px; padding: 24px 20px 30px; }
 .em .e-ft.vip .sig { margin: 0; font-size: 20px; line-height: 1.6; max-width: 400px; }
 .em .e-ft.vip .mgr { font-size: 24px; font-weight: 700; line-height: 1.6; color: var(--txt); text-decoration: underline; }
-.em .e-ft.vip .safe { display: block; width: 258px; height: auto; margin-top: 14px; }
+.em .e-ft.vip .safe { display: block; width: 260px; height: auto; margin-top: 14px; }
 
 /* картинка с текстом в обводке: отступ от рамки */
 .em .em-blk.has-bd .e-ct.mirror { padding: 14px; border-radius: var(--rad); }
 /* контент: бонусы карточками (две рядом) */
 .em .e-ct.c10 { display: flex; flex-wrap: wrap; justify-content: center; gap: 24px; }
-.em .e-ct.c10 .bc { width: 254px; box-sizing: border-box; padding: 22px 14px; border-radius: var(--rad); display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.em .e-ct.c10 .bc { width: 260px; box-sizing: border-box; padding: 22px 14px; border-radius: var(--rad); display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
 .em .e-ct.c10 .t { font-size: 20px; text-transform: uppercase; }
 .em .e-ct.c10 .big { font-size: 64px; line-height: 1; }
 .em .e-ct.c10 .s { font-size: 20px; }
@@ -396,7 +397,7 @@ export const EMAIL_CSS = `
 .em .e-mb .sp b { display: block; color: var(--acc); font-size: 24px; margin-bottom: 2px; }
 .em .e-mb .sp span { display: block; }
 .em .e-mb.m1 { display: flex; gap: 12px; padding: 20px; font-size: 18px; line-height: 1.6; }
-.em .e-mb.m1 .pic { width: 204px; height: 204px; object-fit: cover; border-radius: 8px; flex: none; display: block; }
+.em .e-mb.m1 .pic { width: 200px; height: 200px; object-fit: cover; border-radius: 8px; flex: none; display: block; }
 .em .e-mb.m1 .ls { flex: 1; min-width: 0; }
 .em .e-mb.m1 .sp b { margin-bottom: 8px; }
 
