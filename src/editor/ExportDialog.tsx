@@ -76,7 +76,7 @@ export function ExportDialog({ doc }: { doc: EmailDoc }) {
       <Dialog.Trigger asChild><button type="button" className="btn primary"><Download size={15} />Экспорт</button></Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-back" />
-        <Dialog.Content className="dialog" aria-describedby={undefined}>
+        <Dialog.Content className="dialog export-dlg" aria-describedby={undefined}>
           <div className="dialog-head">
             <Dialog.Title className="h-xl" style={{ margin: 0 }}>Экспорт</Dialog.Title>
             <Dialog.Close asChild><button type="button" className="icon-btn" aria-label="Закрыть"><X size={16} /></button></Dialog.Close>

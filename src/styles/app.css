@@ -231,9 +231,10 @@ select.inp option { background: var(--raised); }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 .dialog-back { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(6px); z-index: 60; animation: fade 0.15s; }
 @keyframes fade { from { opacity: 0; } }
-.dialog { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(500px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; background: var(--panel); border: 1px solid var(--line-2); border-radius: 18px; padding: 22px; display: grid; gap: 14px; z-index: 61; box-shadow: var(--shadow); animation: fade 0.15s; }
+.dialog { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(500px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; background: var(--panel); border: 1px solid var(--line-2); border-radius: 18px; padding: 22px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; z-index: 61; box-shadow: var(--shadow); animation: fade 0.15s; }
 .dialog-head { display: flex; justify-content: space-between; align-items: center; }
-.dialog-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.dialog-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.dialog.export-dlg { width: min(540px, calc(100vw - 32px)); }
 .dialog-foot .btn:disabled { opacity: 0.45; }
 .meter { height: 6px; border-radius: 6px; background: var(--raised-2); overflow: hidden; }
 .meter div { height: 100%; background: var(--ok); border-radius: 6px; }
