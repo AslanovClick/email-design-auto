@@ -4,13 +4,11 @@
 import { BONUS_ITEMS, CONTENT_ITEMS, STEP_ITEMS, parseItems, type Item } from '@/model/items';
 import { clientPreset } from '@/model/presets';
 import type { Block, BlockData, EmailDoc } from '@/model/types';
-import { renderCtaButton } from './elements';
+import { renderCtaButton, withAccent } from './elements';
 import { isLightBg } from './hero';
 
 const esc = (s: unknown) =>
   String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
-/** Текст с выделением: /так/ — жирно и цветом акцента. Слеши без пробелов внутри у краёв, «EUR / USD» не трогаем. */
-export const withAccent = (s: unknown) => esc(s).replace(/\/(?=\S)([^/\n]*?\S)\//g, '<b class="hl">$1</b>');
 const split = (s: unknown) => String(s ?? '').split('/').map((x) => x.trim());
 const brand = (s: unknown, doc: EmailDoc) => esc(String(s ?? '').replace(/\{\{brand\}\}/g, clientPreset(doc.client).name));
 
@@ -104,7 +102,8 @@ export function renderContent(b: Block) {
       // 4–7: картинка слева/справа, с кнопкой или без
       const right = b.v === 5 || b.v === 7;
       const withCta = b.v >= 6;
-      const text = `<div class="tx"><b class="t">${esc(d.title)}</b><span class="s">${esc(d.sub)}</span><p>${esc(d.text)}</p>${withCta ? innerBtn(d, 13, true) : ''}</div>`;
+      // строки текста — переносами (характеристики слота из ТЗ — по строке)
+      const text = `<div class="tx"><b class="t">${esc(d.title)}</b><span class="s">${esc(d.sub)}</span><p>${esc(d.text).replace(/\n/g, '<br>')}</p>${withCta ? innerBtn(d, 13, true) : ''}</div>`;
       const img = imgOr(d.image, `side ${withCta ? 'lg' : ''}`, d.alt);
       return `<div class="e-pad"><div class="e-ct mirror e-frame">${right ? text + img : img + text}</div></div>`;
     }

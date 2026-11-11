@@ -1,7 +1,7 @@
 import { commands } from 'vitest/browser';
 import { expect, test } from 'vitest';
 import { TEMPLATES } from '@/model/catalog';
-import { createEmail } from '@/model/factory';
+import { createBlock, createEmail } from '@/model/factory';
 import type { EmailDoc } from '@/model/types';
 import { renderDocument } from '../render';
 import wf from '../../../n8n/clickable-mail.json';
@@ -70,4 +70,19 @@ test('iframe убирается и после ошибки', async () => {
   const broken = { ...createEmail('20bet', 'blank'), blocks: [{ id: 'x', type: 'nope', v: 0, data: {}, style: {} }] } as never;
   await expect(buildMail(broken)).rejects.toThrow();
   expect(document.querySelectorAll('iframe').length).toBe(before);
+});
+
+test('top win из ТЗ: строка под оффером, характеристики слота по строкам и выделение доходят до HTML', async () => {
+  const doc = createEmail('koi', 'blank');
+  doc.blocks.splice(1, 0,
+    createBlock('text', 4, { kicker: 'Ставка: 2 EUR', offer: 'Выигрыш: 4,210.50 EUR', tagline: 'Удача ждёт вас!' }),
+    createBlock('text', 0, { title: '', titleOn: false, text: 'Игрок /lex***/ сорвал куш' }),
+    createBlock('bullets', 4, { image: '', title: 'Dragon Fortune', sub: 'Hacksaw Gaming', text: 'Free Spins\nHold and Win' }));
+  const b = await buildMail(doc);
+  const html = await runHtmlGen(htmlGen, b.payload);
+  const text = html.replace(/<[^>]+>/g, '|');
+  expect(text).toContain('Удача ждёт вас!');
+  expect(html).toMatch(/Free Spins\s*<br[^>]*>\s*Hold and Win/);
+  expect(html).toMatch(/<[^>]+(?:color|style)[^>]*>lex\*\*\*</);
+  await writeOut('top-win', doc, b, html);
 });

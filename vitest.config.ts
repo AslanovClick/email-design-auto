@@ -20,7 +20,7 @@ export default mergeConfig(
         {
           extends: true,
           // зависимости, найденные посреди прогона, перезагружают страницу и роняют импорт тестов
-          optimizeDeps: { include: ['react', 'react-dom', 'react-dom/client', 'react/jsx-dev-runtime', 'react/jsx-runtime', '@radix-ui/react-dialog', 'clsx', 'lucide-react', 'zustand', 'jszip'] },
+          optimizeDeps: { include: ['react', 'react-dom', 'react-dom/client', 'react/jsx-dev-runtime', 'react/jsx-runtime', '@radix-ui/react-dialog', '@radix-ui/react-select', 'clsx', 'lucide-react', 'zustand', 'jszip', 'react-router-dom', 'idb-keyval'] },
           test: {
             name: 'browser',
             include: ['src/**/*.browser.test.{ts,tsx}'],

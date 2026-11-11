@@ -76,8 +76,8 @@ export interface EmailDoc {
   bg: Background;
   blocks: Block[];
   updatedAt: number;
-  /** Письмо собрано по ТЗ: исходный текст и заметки для дизайнера (что сделать руками). */
-  brief?: { source: string; notes: string[] };
+  /** Письмо собрано по ТЗ: исходный текст, текст плана и заметки для дизайнера (что сделать руками). */
+  brief?: { source: string; plan?: string; notes: string[] };
 }
 
 export type FieldKind = 'text' | 'textarea' | 'link' | 'image' | 'images' | 'team' | 'league' | 'list' | 'paragraphs' | 'items';

@@ -1,19 +1,33 @@
-// Сборка письма из разобранного ТЗ. Порядок и набор блоков — как в макетах Figma:
-// то, чего нет в ТЗ, но есть в дизайне по умолчанию (коэффициенты, кнопки, приветствие), ставим с рыбным текстом.
-// Визуал за дизайнером: картинка hero, гербы, которых нет в библиотеке, картинки слотов — оставляем пустыми
-// и пишем об этом в заметках. В конце — «Случайный стиль», чтобы макет сразу выглядел живее.
+// Сборка письма из разобранного ТЗ — в два шага: план (блоки по порядку, с пометкой происхождения)
+// и письмо из плана. Порядок и набор блоков — как в макетах Figma: то, чего нет в ТЗ, но есть в дизайне
+// по умолчанию (коэффициенты, кнопки, приветствие), ставим с рыбным текстом или примерными значениями.
+// Визуал за дизайнером: картинка hero, гербы, которых нет в библиотеке, картинки слотов — оставляем пустыми;
+// заметки об этом выводятся из самих блоков (derivedNotes), поэтому не устаревают после правок плана.
+// В конце — «Случайный стиль», чтобы макет сразу выглядел живее.
 
 import { randomizeStyle } from '@/editor/randomize';
+import { fieldsFor } from '@/model/catalog';
 import { createBlock, createEmail } from '@/model/factory';
 import { FISH_GREETING, FISH_SHORT, FISH_TEXT } from '@/model/fish';
 import { itemsValue } from '@/model/items';
 import { LEAGUE_PRESETS, TEAM_PRESETS, clientPreset, type ImagePreset } from '@/model/presets';
 import type { Block, BlockData, BlockType, EmailDoc } from '@/model/types';
-import { norm, splitDate, type Brief, type Match, type Section } from './parse';
+import { norm, splitDate, type Brief, type BriefKind, type Match, type Section } from './parse';
 
 /** Откуда текст блока — для превью перед созданием. */
 export type Origin = 'tz' | 'fish' | 'design';
 export interface Planned { block: Block; origin: Origin }
+
+/** План письма: шапка, блоки по порядку и заметки из самого ТЗ (выводимые из блоков — derivedNotes). */
+export interface PlanDoc {
+  client: string;
+  kind: BriefKind;
+  name: string;
+  subject: string;
+  preheader: string;
+  blocks: Planned[];
+  notes: string[];
+}
 
 // ---------- библиотека гербов и лиг
 
@@ -55,60 +69,78 @@ export function findLeague(name: string): ImagePreset | null {
   return (id && LEAGUE_PRESETS.find((l) => l.id === id)) || LEAGUE_PRESETS.find((l) => norm(l.name) === n) || null;
 }
 
-/** В шаге выделяем то, что обычно выделено в макетах: суммы («15 EUR», «50%») и латинские названия
- *  в русском тексте (слот, промокод). Выделение — слешами, его видно и можно поправить в редакторе. */
+/** Герб: по id из библиотеки (его узнала модель), иначе по названию. */
+const teamOf = (name: string, id?: string) => (id && TEAM_PRESETS.find((t) => t.id === id)) || findTeam(name);
+
+const CURRENCY = 'EUR|USD|USDT|CAD|AUD|BRL|GBP|PLN|INR|KZT|UAH|RUB|TRY|MXN|ARS|CLP|PEN|COP|NZD|CHF|JPY|NOK|SEK|DKK|CZK|HUF|BTC|ETH';
+const AMOUNT = new RegExp(`(?<![\\p{L}\\p{N}/.,])(\\d+(?:[.,]\\d+)*\\s?(?:${CURRENCY}|€|\\$|£|₽|₴|₸|%))(?![\\p{L}\\p{N}])`, 'giu');
+const MULTIPLIER = /(?<![\p{L}\p{N}/])([xх×]\d+(?:[.,]\d+)*)(?![\p{L}\p{N}])/giu;
+const NICK = /(?<![\p{L}\p{N}/*])(\p{L}[\p{L}\p{N}_]*\*{2,})(?![\p{L}\p{N}*])/gu;
+/** Латиница, которую не выделяем: коды валют и часовые пояса («23:59 UTC»). */
+const CODE = new RegExp(`^(?:${CURRENCY}|UTC|GMT|CET|CEST|EET|EEST|MSK)$`);
+
+/** Выделяем то, что обычно выделено в макетах: суммы («15 EUR», «3 BRL», «50%»), множители («x5052,20»),
+ *  ники игроков («abc***») и латинские названия в русском тексте (слот, промокод).
+ *  Выделение — слешами, его видно и можно поправить в редакторе. */
 export function accentStep(s: string): string {
   if (s.includes('/')) return s; // уже размечено в ТЗ
-  let out = s.replace(/(\d+(?:[.,]\d+)?\s?(?:EUR|USD|USDT|CAD|AUD|€|\$|%))(?![\p{L}\p{N}])/giu, '/$1/');
+  let out = s.replace(AMOUNT, '/$1/').replace(MULTIPLIER, '/$1/').replace(NICK, '/$1/');
   if (/\p{Script=Cyrillic}/u.test(s)) {
     out = out.replace(/(?<![\p{L}\p{N}/])([A-Z][\w'’]*(?:\s+(?:[A-Z][\w'’]*|in|of|the|and|x\d+))*!?)(?![\p{L}\p{N}/])/gu,
-      (m) => (/^(EUR|USD|USDT|CAD|AUD)$/.test(m) ? m : `/${m}/`));
+      (m) => (CODE.test(m) ? m : `/${m}/`));
   }
   return out;
 }
 
-// ---------- сборка
+// ---------- план
 
-export function buildEmail(brief: Brief, clientId: string): { doc: EmailDoc; plan: Planned[] } {
-  const plan: Planned[] = [];
+export function planFromBrief(brief: Brief, clientId: string): PlanDoc {
+  const blocks: Planned[] = [];
   const notes = [...brief.notes];
   const add = (type: BlockType, v: number, data: BlockData = {}, origin: Origin = 'tz') => {
-    plan.push({ block: createBlock(type, v, data), origin });
+    const block = createBlock(type, v, data);
+    blocks.push({ block, origin });
+    return block;
   };
-  const missingCrests = new Set<string>();
   const teamData = (m: Match) => {
-    const t1 = findTeam(m.team1), t2 = findTeam(m.team2);
-    if (!t1) missingCrests.add(m.team1);
-    if (!t2 && m.team2) missingCrests.add(m.team2);
+    const t1 = teamOf(m.team1, m.team1Id), t2 = teamOf(m.team2, m.team2Id);
     return { team1: m.team1, team2: m.team2, team1Logo: t1?.file ?? '', team2Logo: t2?.file ?? '' };
   };
+  // настоящие коэффициенты и «Рекомендуем» из ТЗ, иначе — примерные по макету
+  const odds = (m: Match) => (m.odds ? add('odds', 0, { odds: m.odds }) : add('odds', 0, {}, 'design'));
+  const recodds = (m: Match) => (m.pick || m.coef
+    ? add('recodds', 1, { ...(m.pick && { pick: m.pick }), ...(m.coef && { coef: m.coef }) })
+    : add('recodds', 1, {}, 'design'));
 
-  // hero: картинку рисует дизайнер — оставляем пустой слот
+  // игроки для картинки — заметка дизайнеру (разбор правилами кладёт её сам, модель — не всегда)
+  for (const m of brief.matches) {
+    if (m.players && !notes.some((n) => n.includes(m.players))) {
+      notes.push(`Игроки для картинки ${m.team1}${m.team2 ? ` – ${m.team2}` : ''}: ${m.players}`);
+    }
+  }
+
+  // hero: картинку рисует дизайнер — оставляем пустой слот, если в ТЗ нет готовой
+  const image = brief.heroImage ?? '';
   const match = brief.matches[0];
+  let hero: Block;
   if (match) {
-    const league = findLeague(brief.league);
-    if (brief.league && !league) notes.push(`Логотипа «${brief.league}» нет в библиотеке — в хедере стоит название, лого добавьте вручную`);
+    const league = (brief.leagueId && LEAGUE_PRESETS.find((l) => l.id === brief.leagueId)) || findLeague(brief.league);
     const { dm, year } = splitDate(match.date);
     const hv = brief.league ? (match.date ? 0 : 3) : match.date ? 1 : 2;
-    add('hero', 0, {
-      hv, dateStyle: 0, imageOn: true, image: '', teamsOn: true, date: dm, year: year || '2026',
+    hero = add('hero', 0, {
+      hv, dateStyle: 0, imageOn: true, image, teamsOn: true, date: dm, year: year || '2026',
       league: brief.league, leagueLogo: league?.file ?? '', leagueLogoLight: league?.fileOnLight ?? '',
       ...teamData(match),
     });
   } else {
-    add('hero', 0, { hv: 4, imageOn: true, image: '', teamsOn: false });
+    hero = add('hero', 0, { hv: 4, imageOn: true, image, teamsOn: false });
   }
-  notes.unshift('Картинка hero — за дизайнером');
 
-  const sections = brief.sections.map((s) => ({ ...s }));
-  // приветствие в макетах есть всегда: если текст в ТЗ есть, а приветствия нет — ставим стандартное над первым абзацем;
-  // если текста нет совсем — рыбный блок целиком
-  const texts = sections.filter((s): s is Extract<Section, { k: 'text' }> => s.k === 'text');
-  if (texts.length && !texts.some((s) => s.title)) {
-    texts[0].title = FISH_GREETING;
-    notes.push('Приветствия в ТЗ нет — над первым абзацем стоит стандартное');
-  }
-  const hasText = texts.length > 0;
+  const sections = brief.sections;
+  // приветствие — только из ТЗ (у дизайнеров его нет, если нет в ТЗ); текста в ТЗ нет совсем — рыбный блок целиком
+  const hasText = sections.some((s) => s.k === 'text');
+  // своя кнопка в ТЗ сразу после слотов — в карточках слотов кнопок нет
+  const buttonAfter = new Set(sections.filter((s, i) => s.k === 'slots' && sections[i + 1]?.k === 'button'));
   const intro = () => add('text', 0, { title: FISH_GREETING, titleOn: true, text: FISH_TEXT }, 'fish');
   const footer = () => {
     const s = brief.signature;
@@ -119,14 +151,21 @@ export function buildEmail(brief: Brief, clientId: string): { doc: EmailDoc; pla
   const put = (s: Section) => {
     switch (s.k) {
       case 'top':
-        // текст шапки рисуется на самой картинке hero — блоком его не ставим
-        notes.push(`Текст для картинки hero: «${s.lines.join(' / ')}»`);
+        // текст шапки рисуется на самой картинке hero — блоком его не ставим, он поле hero
+        hero.data.picText = [hero.data.picText, ...s.lines].filter(Boolean).join(' / ');
         break;
+      case 'offer': {
+        // Mailer top: подзаголовок, крупный оффер и строка под ним; одна строка — это сам оффер.
+        // Строки после третьей — в ту же строку под оффером (поле в тексте плана однострочное)
+        const [a = '', b, ...rest] = s.lines;
+        add('text', 4, b === undefined ? { kicker: '', offer: a, tagline: '' } : { kicker: a, offer: b, tagline: rest.join(' ') });
+        break;
+      }
       case 'text':
-        add('text', 0, { title: s.title, titleOn: !!s.title, text: s.paras.join('\n\n') });
+        add('text', 0, { title: s.title, titleOn: !!s.title, text: s.paras.map(accentStep).join('\n\n') });
         break;
       case 'button':
-        add('cta', 0, { text: s.text, caps: false });
+        add('cta', 0, { text: s.text, caps: false, ...(s.link && { link: s.link }) });
         break;
       case 'steps':
         add('text', 1, { title: s.title, titleOn: true, text: '' });
@@ -138,8 +177,7 @@ export function buildEmail(brief: Brief, clientId: string): { doc: EmailDoc; pla
         }
         break;
       case 'timer':
-        add('timer', 0, s.title ? { title: s.title } : {});
-        notes.push('Таймер: проставьте значения и дату окончания акции');
+        add('timer', 0, { ...(s.title && { title: s.title }), ...(s.until && { date: s.until }) });
         break;
       case 'note':
         add('text', 3, { note: s.note, text: s.text });
@@ -149,9 +187,12 @@ export function buildEmail(brief: Brief, clientId: string): { doc: EmailDoc; pla
         break;
       case 'slots':
         for (const sl of s.slots) {
-          add('bullets', 6, { image: '', title: sl.name, sub: sl.provider, text: FISH_SHORT, cta: 'Play now', caps: true, btn: 8 });
+          // подводка — абзацем над карточкой, характеристики — строками в карточке; картинки слотов — за дизайнером
+          if (sl.about) add('text', 0, { title: '', titleOn: false, text: sl.about });
+          const text = sl.features?.length ? sl.features.join('\n') : FISH_SHORT;
+          if (buttonAfter.has(s)) add('bullets', 4, { image: '', title: sl.name, sub: sl.provider, text });
+          else add('bullets', 6, { image: '', title: sl.name, sub: sl.provider, text, cta: 'Play now', caps: true, btn: 8 });
         }
-        notes.push('Картинки слотов — за дизайнером; описания слотов — рыбный текст');
         break;
       case 'facts':
         add('facts', s.details ? 2 : 1, { title: s.title, rows: itemsValue(s.rows) });
@@ -161,7 +202,7 @@ export function buildEmail(brief: Brief, clientId: string): { doc: EmailDoc; pla
 
   if (match) {
     // спорт по макету «Матч дня»: коэффициенты, кнопка, приветствие, …, факты, кнопка
-    add('odds', 0, {}, 'design');
+    odds(match);
     add('cta', 1, { text: 'Bet Now' }, 'design');
     const facts = sections.filter((s) => s.k === 'facts');
     const rest = sections.filter((s) => s.k !== 'facts');
@@ -169,43 +210,115 @@ export function buildEmail(brief: Brief, clientId: string): { doc: EmailDoc; pla
     rest.forEach(put);
     for (const m of brief.matches.slice(1)) {
       add('inner', 0, { image: '', teamsOn: true, ...teamData(m) });
-      add('odds', 0, {}, 'design');
+      odds(m);
       add('cta', 1, { text: 'Bet Now' }, 'design');
     }
-    if (brief.matches.length > 1) notes.push('Inner-блоки: картинки с датой для остальных матчей — за дизайнером');
     if (brief.matches.length === 1) {
-      add('recodds', 1, {}, 'design');
+      recodds(match);
       add('cta', 1, { text: 'Bet Now' }, 'design');
     }
     for (const f of facts) { put(f); add('cta', 1, { text: 'Bet Now' }, 'design'); }
-    notes.push('Коэффициенты и «Рекомендуем» — примерные, уточните перед отправкой');
   } else {
     // приветствие идёт после шапки (текст шапки + кнопка), если в ТЗ его нет — рыбное
     let i = 0;
-    while (i < sections.length && (sections[i].k === 'top' || sections[i].k === 'button')) put(sections[i++]);
+    while (i < sections.length && ['top', 'offer', 'button'].includes(sections[i].k)) put(sections[i++]);
     const slots = sections.some((s) => s.k === 'slots');
-    if (slots && !plan.some((p) => p.block.type === 'cta')) add('cta', 8, { text: 'Play now', caps: true }, 'design');
+    if (slots && !blocks.some((p) => p.block.type === 'cta')) add('cta', 8, { text: 'Play now', caps: true }, 'design');
     if (!hasText) intro();
     sections.slice(i).forEach(put);
   }
   footer();
 
-  if (missingCrests.size) notes.push(`Гербов нет в библиотеке: ${[...missingCrests].join(', ')} — названия вписаны, гербы добавьте вручную`);
-  if (!brief.subject) notes.push('В ТЗ нет темы письма');
-  if (plan.some((p) => p.origin === 'fish')) notes.push('Рыбный текст в приветствии — заменится текстом из ТЗ позже');
-
-  // письмо: клиент, мета, блоки и случайный стиль
-  const doc = createEmail(clientId, 'blank');
   const t1 = match?.team1, t2 = match?.team2;
-  doc.name = match
+  const name = match
     ? `${clientPreset(clientId).name} ${t1}${t2 ? ` – ${t2}` : ''}${brief.league ? ` ${brief.league}` : ''}`
     : brief.title || brief.subject || 'Письмо по ТЗ';
-  doc.subject = brief.subject;
-  doc.preheader = brief.preheader;
-  doc.blocks = plan.map((p) => p.block);
+  return { client: clientId, kind: brief.kind, name, subject: brief.subject, preheader: brief.preheader, blocks, notes };
+}
+
+// ---------- что следует из блоков
+
+/** Поля блока совпадают с умолчаниями его варианта — значит, данные «по макету», не из ТЗ. */
+const isDefault = (b: Block, keys: string[]) => {
+  const def = createBlock(b.type, b.v).data;
+  return keys.every((k) => (b.data[k] ?? '') === (def[k] ?? ''));
+};
+const DESIGN_CTA = new Set(['Bet Now', 'Play now']);
+/** Рыбные абзацы — только у вариантов, где абзацы видны (у «Подзаголовка и оффера» их нет). */
+const fishText = (b: Block) => b.type === 'text' && b.data.text === FISH_TEXT && fieldsFor('text', b.v).some((f) => f.key === 'text');
+const FOOTER_KEYS = ['logoLink', 'manager', 'managerEmail', 'hours', 'supportEmail', 'unsub', 'appleLink', 'androidLink'];
+
+/** Происхождение блока по его данным: рыба, умолчания макета или текст из ТЗ. */
+export function originOf(b: Block): Origin {
+  const d = b.data;
+  if (fishText(b)) return 'fish';
+  if (b.type === 'odds' && isDefault(b, ['odds'])) return 'design';
+  if (b.type === 'recodds' && isDefault(b, ['pick', 'coef'])) return 'design';
+  if (b.type === 'cta' && DESIGN_CTA.has(String(d.text ?? ''))) return 'design';
+  if (b.type === 'footer' && b.v === 0 && isDefault(b, FOOTER_KEYS)) return 'design';
+  return 'tz';
+}
+
+/** Заметки дизайнеру, которые следуют из блоков: что осталось пустым, примерным или рыбным. */
+export function derivedNotes(blocks: Block[]): string[] {
+  const notes = new Set<string>();
+  const crests: string[] = [];
+  const teams = (b: Block) => {
+    if (!b.data.teamsOn) return;
+    for (const [t, logo] of [['team1', 'team1Logo'], ['team2', 'team2Logo']]) {
+      const name = String(b.data[t] ?? '');
+      if (name && !b.data[logo] && !crests.includes(name)) crests.push(name);
+    }
+  };
+  for (const b of blocks) {
+    const d = b.data;
+    switch (b.type) {
+      case 'hero':
+        if (d.imageOn && !d.image) notes.add('Картинка hero — за дизайнером');
+        if (d.picText) notes.add(`Текст для картинки hero: «${d.picText}»`);
+        if (d.league && !d.leagueLogo) notes.add(`Логотипа «${d.league}» нет в библиотеке — в хедере стоит название, лого добавьте вручную`);
+        teams(b);
+        break;
+      case 'inner':
+        if (!d.image) notes.add('Inner-блоки: картинки с датой для остальных матчей — за дизайнером');
+        teams(b);
+        break;
+      case 'text':
+        if (fishText(b)) notes.add('Рыбный текст в приветствии — заменится текстом из ТЗ позже');
+        break;
+      case 'timer':
+        notes.add(isDefault(b, ['date']) ? 'Таймер: проставьте значения и дату окончания акции' : `Таймер: проставьте значения до ${d.date}`);
+        break;
+      case 'odds':
+      case 'recodds':
+        if (originOf(b) === 'design') notes.add('Коэффициенты и «Рекомендуем» — примерные, уточните перед отправкой');
+        break;
+      case 'bullets':
+        if ((b.v === 4 || b.v === 6) && !d.image) {
+          notes.add(d.text === FISH_SHORT ? 'Картинки слотов — за дизайнером; описания слотов — рыбный текст' : 'Картинки слотов — за дизайнером');
+        }
+        break;
+    }
+  }
+  if (crests.length) notes.add(`Гербов нет в библиотеке: ${crests.join(', ')} — названия вписаны, гербы добавьте вручную`);
+  return [...notes];
+}
+
+// ---------- письмо
+
+/** Письмо из плана: клиент, мета, блоки (hero — первым, футер — последним) и случайный стиль. */
+export function docFromPlan(plan: PlanDoc): EmailDoc {
+  const doc = createEmail(plan.client, 'blank');
+  doc.name = plan.name || 'Письмо по ТЗ';
+  doc.subject = plan.subject;
+  doc.preheader = plan.preheader;
+  const rank = (b: Block) => (b.type === 'hero' ? 0 : b.type === 'footer' ? 2 : 1);
+  const blocks = plan.blocks.map((p) => structuredClone(p.block)).sort((a, b) => rank(a) - rank(b));
+  // заметки — до случайного стиля: он меняет варианты, а заметки считаются по вариантам из плана
+  const notes = [...plan.notes, ...derivedNotes(blocks)];
+  if (!plan.subject) notes.push('В ТЗ нет темы письма');
+  doc.blocks = blocks;
   Object.assign(doc, randomizeStyle(doc));
-  // после случайного стиля блоки — новые объекты; превью показывает их же
-  plan.forEach((p, i) => { p.block = doc.blocks[i]; });
-  doc.brief = { source: '', notes };
-  return { doc, plan };
+  doc.brief = { source: '', notes: [...new Set(notes)] };
+  return doc;
 }

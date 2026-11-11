@@ -87,3 +87,16 @@
 .brief-blk .org.fish { background: rgba(255, 176, 32, 0.14); color: var(--warn); }
 .brief-blk .org.design { background: var(--raised-2); color: var(--muted); }
 @media (max-width: 760px) { .brief-cols { grid-template-columns: 1fr; } .dialog.brief-dlg { height: auto; } }
+/* окно «Собрать по ТЗ»: вкладки ТЗ / План, кнопки под полем, подпись «кто составил план», непонятые строки */
+.brief-src { grid-template-rows: auto minmax(0, 1fr) auto auto; gap: 8px; }
+.brief-tabs { display: flex; gap: 4px; }
+.brief-tabs button { position: relative; padding: 6px 14px; border-radius: var(--r-sm); border: 1px solid var(--line-2); background: transparent; color: var(--muted); font: 600 12.5px/1 inherit; cursor: pointer; }
+.brief-tabs button.on { background: var(--panel); color: var(--text); border-color: var(--accent); }
+.brief-tabs .dot { position: absolute; top: 4px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
+.brief-area textarea.mono { font-size: 12px; white-space: pre; overflow-wrap: normal; overflow-x: auto; }
+.brief-actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; min-height: 34px; }
+.brief-status { display: grid; gap: 3px; font-size: 11.5px; color: var(--muted); line-height: 1.4; min-height: 16px; }
+.brief-status .ok { color: var(--ok); }
+.brief-status .warn, .brief-sub.warn { color: var(--warn); }
+.brief-errors { margin: 0 0 14px; padding: 0 0 0 18px; display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+.brief-errors b { font-weight: 600; color: var(--text); font-family: var(--mono); font-size: 11.5px; }

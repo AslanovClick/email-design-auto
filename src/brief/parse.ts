@@ -5,18 +5,32 @@
 import { CLIENT_PRESETS } from '@/model/presets';
 import type { Item } from '@/model/items';
 
-export interface Match { date: string; team1: string; team2: string; players: string }
+export interface Match {
+  date: string; team1: string; team2: string; players: string;
+  /** Коэффициенты П1 / Х / П2 строкой, как в ТЗ: «2.10 / 3.40 / 3.25». */
+  odds?: string;
+  /** «Рекомендуем»: исход и коэффициент. */
+  pick?: string; coef?: string;
+  /** id команд из библиотеки (гербы), названия — как в ТЗ. */
+  team1Id?: string; team2Id?: string;
+}
+
+/** Слот: название и провайдер; подводка и характеристики — как в ТЗ («Bonus Buy», «Макс. выигрыш: x50,000»). */
+export interface Slot { name: string; provider: string; about?: string; features?: string[] }
 
 export type Section =
-  /** Текст шапки (Mailer top / Image): подзаголовок и оффер. */
+  /** Текст на картинке шапки (Image / Картинка / Баннер) — его рисует дизайнер. */
   | { k: 'top'; lines: string[] }
+  /** Оффер под картинкой шапки (Mailer top): подзаголовок, крупный оффер, призыв — по строкам. */
+  | { k: 'offer'; lines: string[] }
   | { k: 'text'; title: string; paras: string[] }
-  | { k: 'button'; text: string }
+  | { k: 'button'; text: string; link?: string }
   | { k: 'steps'; title: string; steps: string[] }
-  | { k: 'timer'; title: string }
+  /** until — окончание акции, как в ТЗ («22.11.2026 23:59»). */
+  | { k: 'timer'; title: string; until?: string }
   | { k: 'note'; note: string; text: string }
   | { k: 'cards'; cards: Item[] }
-  | { k: 'slots'; slots: { name: string; provider: string }[] }
+  | { k: 'slots'; slots: Slot[] }
   | { k: 'facts'; title: string; rows: Item[]; details: boolean };
 
 export interface Signature { manager: string; email: string; hours: string }
@@ -32,6 +46,10 @@ export interface Brief {
   preheader: string;
   kind: BriefKind;
   league: string;
+  /** id лиги из библиотеки (лого). */
+  leagueId?: string;
+  /** Готовая картинка баннера из ТЗ (http-ссылка). */
+  heroImage?: string;
   matches: Match[];
   sections: Section[];
   signature: Signature | null;
@@ -76,7 +94,7 @@ export function detectClient(text: string, prefer = ''): string | null {
 
 type Label =
   | 'subject' | 'preheader' | 'brand' | 'league' | 'date' | 'teams' | 'players' | 'facts' | 'details'
-  | 'text' | 'top' | 'button' | 'push' | 'body';
+  | 'text' | 'top' | 'offer' | 'button' | 'push' | 'body';
 
 /** Метки «Ключ: значение». Ключ сравниваем после norm(). */
 const LABELS: [Label, string[]][] = [
@@ -90,7 +108,8 @@ const LABELS: [Label, string[]][] = [
   ['facts', ['факты', 'фактыматча', 'facts', 'matchfacts', 'интересныефакты']],
   ['details', ['деталиматча', 'статистика', 'matchdetails', 'stats', 'details']],
   ['text', ['text', 'текст', 'bodytext', 'основнойтекст']],
-  ['top', ['mailertop', 'image', 'картинка', 'баннер', 'hero', 'шапка', 'banner']],
+  ['top', ['image', 'картинка', 'баннер', 'hero', 'шапка', 'banner']],
+  ['offer', ['mailertop', 'topmailer', 'оффер', 'offer']],
   ['button', ['button', 'кнопка', 'cta']],
   ['body', ['body']],
 ];
@@ -112,6 +131,7 @@ const NOTE_HEAD = /^\*?\s*(обратите\s+внимание|важно|вни
 const LIST_ITEM = /^\s*(?:[-–—•*·]|\d{1,2}[.)])\s+/;
 const NUMBERED = /^\s*\d{1,2}[.)]\s*/;
 const SLOT_LINE = /^(.{2,60}?)\s*\(([^()]{2,40})\)\s*$/;
+const PROVIDER = /^(?:провайдер|разработчик|provider|developer)\s*:\s*(.{2,40})$/i;
 const BIG_TOKEN = /(\d+(?:[.,]\d+)?\s?(?:%|fs\b|free\s?spins?|фриспин\w*|eur\b|usd\b|usdt\b|€|\$))/i;
 const CARD_PAIR_BIG = /^(?:до\s+|up\s+to\s+)?\d+(?:[.,]\d+)?\s?(?:%|fs|free\s?spins?|фриспин\w*|eur|usd|usdt|€|\$)\s*$/i;
 const CARD_PAIR_SUB = /^(?:на|за|for|on|with|при)\s+(?:депозит|deposit|пополнени)/i;
@@ -210,7 +230,7 @@ export function parseBrief(raw: string): Brief {
     sections: [], signature: null, notes: [],
   };
   let brand = '';
-  type Mode = 'none' | 'text' | 'top' | 'facts' | 'details' | 'push' | 'steps' | 'note' | 'signature';
+  type Mode = 'none' | 'text' | 'top' | 'offer' | 'facts' | 'details' | 'push' | 'steps' | 'note' | 'signature' | 'slot';
   let mode: Mode = 'none';
   // режим меняется и во вложенных функциях — читаем через cur(), чтобы TS не сужал тип по присваиваниям
   const cur = (): Mode => mode;
@@ -236,6 +256,7 @@ export function parseBrief(raw: string): Brief {
     if (cur() === 'facts' && block.length) b.sections.push({ k: 'facts', title: blockTitle, rows: factRows(block), details: false });
     if (cur() === 'details' && block.length) b.sections.push({ k: 'facts', title: blockTitle, rows: detailRows(block), details: true });
     if (cur() === 'top' && block.length) b.sections.push({ k: 'top', lines: block });
+    if (cur() === 'offer' && block.length) b.sections.push({ k: 'offer', lines: block });
     if (cur() === 'push' && block.length) push.push(...block);
     block = [];
     blockTitle = '';
@@ -275,7 +296,7 @@ export function parseBrief(raw: string): Brief {
     const btn = BUTTON_INLINE.exec(l);
     if (btn) {
       const text = (btn[1] ?? btn[2]).trim().replace(/^[«"']|[»"']$/g, '');
-      if (cur() === 'top') flush();
+      if (cur() === 'top' || cur() === 'offer') flush();
       if (cur() !== 'facts' && cur() !== 'details') mode = 'text';
       b.sections.push({ k: 'button', text });
       continue;
@@ -309,14 +330,15 @@ export function parseBrief(raw: string): Brief {
         case 'details': setMode('details', `${lm[1].trim()}:`); if (v) block.push(v); continue;
         case 'text': setMode('text'); if (v) addPara(v, true); continue;
         case 'top': setMode('top'); if (v) block.push(v); continue;
+        case 'offer': setMode('offer'); if (v) block.push(v); continue;
         case 'body': if (v) addPara(v, newPara); continue;
         default: break;
       }
     }
 
-    if (cur() === 'facts' || cur() === 'details' || cur() === 'top') {
-      // «Детали матча» и факты идут до следующей метки; шапка — до кнопки или пустой строки
-      if (cur() === 'top' && newPara && block.length) { flush(); mode = 'text'; }
+    if (cur() === 'facts' || cur() === 'details' || cur() === 'top' || cur() === 'offer') {
+      // «Детали матча» и факты идут до следующей метки; шапка и оффер — до кнопки или пустой строки
+      if ((cur() === 'top' || cur() === 'offer') && newPara && block.length) { flush(); mode = 'text'; }
       else { block.push(l); continue; }
     }
 
@@ -409,6 +431,27 @@ export function parseBrief(raw: string): Brief {
       gap = true;
       continue;
     }
+
+    // карточка слота: название и подводка — последние абзацы перед списком «- Провайдер: …», дальше — характеристики
+    const prov = LIST_ITEM.test(l) ? PROVIDER.exec(l.replace(LIST_ITEM, '')) : null;
+    if (prov) {
+      const t = last();
+      const paras = t?.k === 'text' ? t.paras : [];
+      const isName = (p = '') => p.length > 1 && p.length <= 60 && !/[.!?:…]$/.test(p);
+      const named = isName(paras.at(-2)) ? 2 : isName(paras.at(-1)) ? 1 : 0;
+      if (named) {
+        const [name, about] = paras.splice(-named);
+        flush();
+        b.sections.push({ k: 'slots', slots: [{ name, provider: prov[1].trim(), about: about ?? '', features: [] }] });
+        mode = 'slot';
+        continue;
+      }
+    }
+    if (cur() === 'slot' && LIST_ITEM.test(l)) {
+      const s = last();
+      if (s?.k === 'slots') { s.slots.at(-1)!.features!.push(l.replace(LIST_ITEM, '')); continue; }
+    }
+    if (cur() === 'slot') mode = 'text';
 
     // список слотов «Название (Провайдер)»
     const slot = SLOT_LINE.exec(l);

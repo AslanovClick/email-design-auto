@@ -1,0 +1,282 @@
+{
+  "name": "Clickable Mail → план по ТЗ",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "8b81f737-1a23-4c23-9657-13fc88fb0f4a",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        300
+      ],
+      "id": "9595bb61-6652-4afa-9ab9-e8ee91884b26",
+      "name": "Webhook",
+      "webhookId": "8b81f737-1a23-4c23-9657-13fc88fb0f4a"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Текст ТЗ из Clickable Mail → тело запроса к OpenRouter. Модель и промпт задаёт этот узел, а не приложение:\n// вебхук открыт всем, и через него нельзя гонять свои запросы на ключе. Из запроса берётся только text.\n// Шаблон запроса вписывает n8n/tools/sync-brief-plan.ts из src/brief/prompt.ts — руками не править.\nconst body = $('Webhook').first().json.body || {};\nconst MAX = 20000;\nconst fail = error => [{ json: { kind: 'error', error } }];\nif (typeof body.text !== 'string') return fail('В запросе нет текста ТЗ');\nconst text = body.text.trim();\nif (!text) return fail('ТЗ пустое');\nif (text.length > MAX) return fail(`ТЗ длиннее 20 000 знаков (${text.length}) — сократите`);\n// <<REQUEST\nconst REQUEST_TEMPLATE = {\n  \"models\": [\n    \"anthropic/claude-haiku-5.5\",\n    \"deepseek/deepseek-v3.2\"\n  ],\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Ты разбираешь ТЗ на e-mail рассылку беттинг- и казино-брендов в структуру для конструктора писем.\\nОтвет — только JSON-объект по схеме ниже, без пояснений и без Markdown.\\n\\nПоля ответа:\\n- client: id клиента из справочника или null, если бренд не из списка.\\n- title: название рассылки (обычно первая строка ТЗ). subject: тема письма — строка «Title:» или «Тема:» в ТЗ\\n  (это subject, а не title). preheader: прехедер (Pre-header / Прехедер).\\n- kind: sport — ставки на матчи; casino — слоты и казино; vip — письмо от VIP-менеджера; promo — бонусы и акции без матчей.\\n- league: турнир, как написан в ТЗ, или \\\"\\\". leagueId: id лиги из справочника, если узнал её, иначе не указывай.\\n- heroImage: ссылка http(s) на готовую картинку, если ТЗ просит поставить её в шапку письма (баннер, hero, главная картинка);\\n  иначе не указывай. Такая ссылка — не заметка: её место в heroImage.\\n- matches: матчи — date (ДД.ММ.ГГГГ или как в ТЗ), team1, team2 (как в ТЗ), players (игроки для картинки через \\\" - \\\" или \\\"\\\"),\\n  odds (коэффициенты П1 / Х / П2 через \\\" / \\\", только если они есть в ТЗ), pick и coef (ставка «Рекомендуем» и её коэффициент, только из ТЗ),\\n  team1Id / team2Id (id команды из справочника, если узнал её; иначе не указывай).\\n- sections: содержимое письма по порядку ТЗ:\\n  {\\\"k\\\":\\\"top\\\",\\\"lines\\\":[…]} — текст на самой картинке шапки (в ТЗ под Image / Картинка / Баннер), по строкам;\\n  {\\\"k\\\":\\\"offer\\\",\\\"lines\\\":[…]} — оффер под картинкой шапки (в ТЗ под Mailer top): строки как в ТЗ — подзаголовок,\\n    крупный оффер, призыв; кнопка после них — отдельной секцией button;\\n  {\\\"k\\\":\\\"text\\\",\\\"title\\\":\\\"…\\\",\\\"paras\\\":[…]} — приветствие или заголовок абзаца (иначе \\\"\\\") и абзацы текста;\\n  {\\\"k\\\":\\\"button\\\",\\\"text\\\":\\\"…\\\",\\\"link\\\":\\\"…\\\"} — кнопка; link — только если в ТЗ есть URL этой кнопки;\\n  {\\\"k\\\":\\\"steps\\\",\\\"title\\\":\\\"…\\\",\\\"steps\\\":[…]} — пошаговая инструкция (как получить/активировать бонус);\\n  {\\\"k\\\":\\\"timer\\\",\\\"title\\\":\\\"…\\\",\\\"until\\\":\\\"…\\\"} — таймер: подпись над ним; until — дата и время окончания, если они есть в ТЗ;\\n  {\\\"k\\\":\\\"note\\\",\\\"note\\\":\\\"Обратите внимание!\\\",\\\"text\\\":\\\"…\\\"} — сноска с условиями;\\n  {\\\"k\\\":\\\"cards\\\",\\\"cards\\\":[{\\\"title\\\":\\\"…\\\",\\\"big\\\":\\\"…\\\",\\\"sub\\\":\\\"…\\\",\\\"text\\\":\\\"…\\\"}]} — бонусы карточками (big — крупная цифра);\\n  {\\\"k\\\":\\\"slots\\\",\\\"title\\\":\\\"…\\\",\\\"provider\\\":\\\"…\\\",\\\"text\\\":\\\"…\\\",\\\"lines\\\":[…]} — слот, по секции на каждый: title — название,\\n    provider — только имя провайдера, text — строка-описание под названием (или \\\"\\\"), lines — все остальные пункты списка\\n    характеристик дословно, в том числе вида «Макс. выигрыш: …» (без строки провайдера). Описание и характеристики слота — только здесь, не повторяй их в text;\\n  {\\\"k\\\":\\\"facts\\\",\\\"title\\\":\\\"…\\\",\\\"details\\\":true|false,\\\"rows\\\":[…]} — факты о матче; details: true — цифры команд, false — список фактов.\\n  Строки фактов: {\\\"t\\\":\\\"stat\\\",\\\"l\\\":\\\"…\\\",\\\"label\\\":\\\"…\\\",\\\"r\\\":\\\"…\\\",\\\"ls\\\":\\\"\\\",\\\"rs\\\":\\\"\\\"} — значение слева, параметр, значение справа (ls/rs — подписи вроде «(48%)»);\\n  {\\\"t\\\":\\\"form\\\",\\\"l\\\":\\\"0 / 4 / 1\\\",\\\"label\\\":\\\"…\\\",\\\"sub\\\":\\\"…\\\",\\\"r\\\":\\\"3 / 1 / 1\\\"} — форма В / П / Н; {\\\"t\\\":\\\"h2h\\\",\\\"title\\\":\\\"…\\\",\\\"vals\\\":\\\"1 / 1 / 3\\\",\\\"labels\\\":\\\"… / … / …\\\"} — три значения;\\n  {\\\"t\\\":\\\"text\\\",\\\"text\\\":\\\"…\\\"} — абзац; {\\\"t\\\":\\\"fact\\\",\\\"lead\\\":\\\"…\\\",\\\"text\\\":\\\"…\\\"} — факт с выделенным началом.\\n- signature: подпись VIP-менеджера {\\\"manager\\\":\\\"…\\\",\\\"email\\\":\\\"…\\\",\\\"hours\\\":\\\"…\\\"} или null.\\n- notes: всё, что не идёт в текст письма: сроки вёрстки, игроки для картинки, пуш, время матча, ссылки на макеты (Figma, Drive), пометки для дизайнера.\\n  Только то, что написано в ТЗ: пояснений о том, как ты разобрал ТЗ, в notes не пиши.\\n\\nПравила:\\n- Ничего не придумывай. Тексты — дословно из ТЗ, без разметки Markdown. Чего нет в ТЗ — не добавляй (пустые строки и массивы).\\n- Не переводи: тексты — на языке ТЗ.\\n- Обращение name / [NAME] / {name} / %name% → {{name}}.\\n- Кнопка — только то, что в ТЗ прямо названо кнопкой (button / кнопка / CTA). Служебные строки документа\\n  (стрелки, «развернуть», ссылки на макеты, правки для дизайнера) — не кнопки и не текст письма.\\n- Значение таймера («ХХ дней ХХ часов…») — не текст письма: только секция timer с подписью.\\n- Список событий экспресса внутри текста — абзацами текста, как в ТЗ.\\n- Названия команд и лиг — как в ТЗ; id — только из справочников ниже.\\n- «[картинка]» в ТЗ — вставленная картинка, её содержимого ты не видишь; это не текст письма.\\n- Отвечай только JSON.\\n\\nСправочники (id — название):\\nКлиенты: 20bet — 20Bet; 20betasia — 20Bet Asia; 22bet — 22Bet; 22bit — 22Bit; 22casino — 22Casino; betlabel — BetLabel; granawin — GranaWin; ivibet — Ivibet; iviwin — Iviwin; koi — KOI Fortune; planbet — Planbet; vave — Vave.\\nЛиги: uefa-champions — UEFA Champions League; uefa-europa — UEFA Europa League; uefa-conference — UEFA Conference League; uefa-nations — UEFA Nations League; uefa-qualifying — UEFA European Qualifiers; epl — Premier League; laliga — LaLiga; bundesliga — Bundesliga; serie-a — Serie A; ligue-1 — Ligue 1; primeira-liga — Primeira Liga; fa-cup — FA Cup; carabao-cup — Carabao Cup; copa-del-rey — Copa del Rey; coppa-italia — Coppa Italia; coupe-de-france — Coupe de France; conmebol-libertadores — CONMEBOL Libertadores; fifa-2026 — FIFA World Cup 2026; fifa-world-2025 — FIFA Club World Cup 2025; fifa-qualifying-caf — FIFA Qualifying · CAF; fifa-qualifying-conmebol — FIFA Qualifying · CONMEBOL.\\nКоманды: real-madrid — Real Madrid; fc-barcelona — FC Barcelona; real-betis — Real Betis; racing-santander — Racing Santander; manchester-city — Manchester City; man-utd — Manchester United; man-united — Man United (alt); liverpool — Liverpool; arsenal — Arsenal; chelsea — Chelsea; aston-villa — Aston Villa; leeds-united — Leeds United; bayern-munich — Bayern Munich; rb-leipzig — RB Leipzig; juventus — Juventus; ac-milan — AC Milan; inter — Inter; napoli — Napoli; al-hilal — Al-Hilal; al-nassr — Al-Nassr; al-ahli — Al-Ahli; ittihad — Al-Ittihad; qadsiah — Al-Qadsiah; altaawoun-fc — Al-Taawoun; al-akhdoud — Al-Akhdoud; al-fayha — Al-Fayha; al-kholood — Al-Kholood; al-sadd — Al-Sadd; al-shamal — Al-Shamal; al-ain-fc — Al Ain; al-jazira — Al Jazira; al-wahda-abu-dhabi — Al Wahda; al-wasl — Al Wasl; al-dhafra — Al Dhafra; shabab-alahli — Shabab Al Ahli; kalba — Kalba; ajman — Ajman; al-kuwait — Al Kuwait; far-rabat — FAR Rabat; mamelodi-sundowns — Mamelodi Sundowns; mumbai-indians — Mumbai Indians; knight-riders — Kolkata Knight Riders; rcb — Royal Challengers Bengaluru; csk — Chennai Super Kings; sunrisers-hyderabad — Sunrisers Hyderabad; rajasthan-royals — Rajasthan Royals; gujarat-titans — Gujarat Titans; delhi-capitals — Delhi Capitals; lucknow-super-giants — Lucknow Super Giants; golden-state-warriors — Golden State Warriors; los-angeles-lakers — Los Angeles Lakers; oklahoma-city-thunder — Oklahoma City Thunder; brazil — Brazil; uruguay — Uruguay; belgium — Belgium; switzerland — Switzerland; morocco — Morocco; egypt — Egypt; qatar — Qatar; saudi-arabia — Saudi Arabia.\\n\\nПример 1. ТЗ:\\nIvibet Weekend Reload\\nТема: Выходные с бонусом\\nПрехедер: +50% к депозиту до воскресенья\\nКартинка: Reload 50% / до 200 EUR\\nКнопка (Забрать бонус)\\nТекст:\\nЗдравствуйте, [NAME]!\\nПополните счёт в выходные — и мы добавим +50% к депозиту.\\nКак получить бонус:\\n1. Пополните счёт от 20 EUR\\n2. Введите промокод WEEKEND50\\nПредложение заканчивается через: ХХ дней ХХ часов\\nОбратите внимание! Бонус нужно отыграть x5 за 7 дней.\\nПуш: Бонус +50% ждёт тебя\\nМакет нужен до 25.11\\nОтвет:\\n```json\\n{\\n \\\"client\\\": \\\"ivibet\\\",\\n \\\"title\\\": \\\"Ivibet Weekend Reload\\\",\\n \\\"subject\\\": \\\"Выходные с бонусом\\\",\\n \\\"preheader\\\": \\\"+50% к депозиту до воскресенья\\\",\\n \\\"kind\\\": \\\"promo\\\",\\n \\\"league\\\": \\\"\\\",\\n \\\"matches\\\": [],\\n \\\"sections\\\": [\\n  {\\n   \\\"k\\\": \\\"top\\\",\\n   \\\"lines\\\": [\\n    \\\"Reload 50%\\\",\\n    \\\"до 200 EUR\\\"\\n   ]\\n  },\\n  {\\n   \\\"k\\\": \\\"button\\\",\\n   \\\"text\\\": \\\"Забрать бонус\\\"\\n  },\\n  {\\n   \\\"k\\\": \\\"text\\\",\\n   \\\"title\\\": \\\"Здравствуйте, {{name}}!\\\",\\n   \\\"paras\\\": [\\n    \\\"Пополните счёт в выходные — и мы добавим +50% к депозиту.\\\"\\n   ]\\n  },\\n  {\\n   \\\"k\\\": \\\"steps\\\",\\n   \\\"title\\\": \\\"Как получить бонус:\\\",\\n   \\\"steps\\\": [\\n    \\\"Пополните счёт от 20 EUR\\\",\\n    \\\"Введите промокод WEEKEND50\\\"\\n   ]\\n  },\\n  {\\n   \\\"k\\\": \\\"timer\\\",\\n   \\\"title\\\": \\\"Предложение заканчивается через:\\\"\\n  },\\n  {\\n   \\\"k\\\": \\\"note\\\",\\n   \\\"note\\\": \\\"Обратите внимание!\\\",\\n   \\\"text\\\": \\\"Бонус нужно отыграть x5 за 7 дней.\\\"\\n  }\\n ],\\n \\\"signature\\\": null,\\n \\\"notes\\\": [\\n  \\\"Пуш: Бонус +50% ждёт тебя\\\",\\n  \\\"Макет нужен до 25.11\\\"\\n ]\\n}\\n```\\n\\nПример 2. ТЗ:\\nKoi Fortune Milan – Inter Serie A\\nТурнир: Serie A\\nКоманды: AC Milan – Inter\\nДата: 07.12.2026 20:45\\nИгроки: Leão - Lautaro\\nКоэффициенты: 2.60 / 3.30 / 2.70\\nСтавка дня: Обе забьют — 1.75\\nДетали матча:\\n2 Место в Серии А 3\\n5 последних личных встреч: 1 / 1 / 3 победа Милана / ничья / победы Интера\\nИнтер не проигрывает в дерби с 2023 года.\\nОтвет:\\n```json\\n{\\n \\\"client\\\": \\\"koi\\\",\\n \\\"title\\\": \\\"Koi Fortune Milan – Inter Serie A\\\",\\n \\\"subject\\\": \\\"\\\",\\n \\\"preheader\\\": \\\"\\\",\\n \\\"kind\\\": \\\"sport\\\",\\n \\\"league\\\": \\\"Serie A\\\",\\n \\\"leagueId\\\": \\\"serie-a\\\",\\n \\\"matches\\\": [\\n  {\\n   \\\"date\\\": \\\"07.12.2026\\\",\\n   \\\"team1\\\": \\\"AC Milan\\\",\\n   \\\"team2\\\": \\\"Inter\\\",\\n   \\\"players\\\": \\\"Leão - Lautaro\\\",\\n   \\\"odds\\\": \\\"2.60 / 3.30 / 2.70\\\",\\n   \\\"pick\\\": \\\"Обе забьют\\\",\\n   \\\"coef\\\": \\\"1.75\\\",\\n   \\\"team1Id\\\": \\\"ac-milan\\\",\\n   \\\"team2Id\\\": \\\"inter\\\"\\n  }\\n ],\\n \\\"sections\\\": [\\n  {\\n   \\\"k\\\": \\\"facts\\\",\\n   \\\"title\\\": \\\"Детали матча:\\\",\\n   \\\"details\\\": true,\\n   \\\"rows\\\": [\\n    {\\n     \\\"t\\\": \\\"stat\\\",\\n     \\\"l\\\": \\\"2\\\",\\n     \\\"label\\\": \\\"Место в Серии А\\\",\\n     \\\"r\\\": \\\"3\\\",\\n     \\\"ls\\\": \\\"\\\",\\n     \\\"rs\\\": \\\"\\\"\\n    },\\n    {\\n     \\\"t\\\": \\\"h2h\\\",\\n     \\\"title\\\": \\\"5 последних личных встреч:\\\",\\n     \\\"vals\\\": \\\"1 / 1 / 3\\\",\\n     \\\"labels\\\": \\\"победа Милана / ничья / победы Интера\\\"\\n    },\\n    {\\n     \\\"t\\\": \\\"text\\\",\\n     \\\"text\\\": \\\"Интер не проигрывает в дерби с 2023 года.\\\"\\n    }\\n   ]\\n  }\\n ],\\n \\\"signature\\\": null,\\n \\\"notes\\\": [\\n  \\\"Время матча: 20:45\\\",\\n  \\\"Игроки для картинки AC Milan – Inter: Leão - Lautaro\\\"\\n ]\\n}\\n```\\n\\nПример 3. ТЗ:\\nVave Lucky Spin\\nTitle: Большой выигрыш в Book of Dead\\nPre-header: Ставка 1 EUR принесла 2,500 EUR\\nMailer top:\\nСтавка: 1 EUR\\nВыигрыш: 2,500 EUR\\nТеперь ваша очередь!\\nbutton (Испытать удачу)\\nText:\\nИгрок ann*** поставил всего 1 EUR и сорвал 2,500 EUR в слоте Book of Dead.\\nBook of Dead\\nДревний Египет и сокровища фараонов.\\n- Провайдер: Play'n GO\\n- Free Spins\\n- Макс. выигрыш: x5,000\\nbutton (Играть)\\nОтвет:\\n```json\\n{\\n \\\"client\\\": \\\"vave\\\",\\n \\\"title\\\": \\\"Vave Lucky Spin\\\",\\n \\\"subject\\\": \\\"Большой выигрыш в Book of Dead\\\",\\n \\\"preheader\\\": \\\"Ставка 1 EUR принесла 2,500 EUR\\\",\\n \\\"kind\\\": \\\"casino\\\",\\n \\\"league\\\": \\\"\\\",\\n \\\"matches\\\": [],\\n \\\"sections\\\": [\\n  {\\n   \\\"k\\\": \\\"offer\\\",\\n   \\\"lines\\\": [\\n    \\\"Ставка: 1 EUR\\\",\\n    \\\"Выигрыш: 2,500 EUR\\\",\\n    \\\"Теперь ваша очередь!\\\"\\n   ]\\n  },\\n  {\\n   \\\"k\\\": \\\"button\\\",\\n   \\\"text\\\": \\\"Испытать удачу\\\"\\n  },\\n  {\\n   \\\"k\\\": \\\"text\\\",\\n   \\\"title\\\": \\\"\\\",\\n   \\\"paras\\\": [\\n    \\\"Игрок ann*** поставил всего 1 EUR и сорвал 2,500 EUR в слоте Book of Dead.\\\"\\n   ]\\n  },\\n  {\\n   \\\"k\\\": \\\"slots\\\",\\n   \\\"title\\\": \\\"Book of Dead\\\",\\n   \\\"provider\\\": \\\"Play'n GO\\\",\\n   \\\"text\\\": \\\"Древний Египет и сокровища фараонов.\\\",\\n   \\\"lines\\\": [\\n    \\\"Free Spins\\\",\\n    \\\"Макс. выигрыш: x5,000\\\"\\n   ]\\n  },\\n  {\\n   \\\"k\\\": \\\"button\\\",\\n   \\\"text\\\": \\\"Играть\\\"\\n  }\\n ],\\n \\\"signature\\\": null,\\n \\\"notes\\\": []\\n}\\n```\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"__TEXT__\"\n    }\n  ],\n  \"temperature\": 0,\n  \"max_tokens\": 4000,\n  \"response_format\": {\n    \"type\": \"json_schema\",\n    \"json_schema\": {\n      \"name\": \"brief\",\n      \"strict\": false,\n      \"schema\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"client\": {\n            \"type\": [\n              \"string\",\n              \"null\"\n            ]\n          },\n          \"title\": {\n            \"type\": \"string\"\n          },\n          \"subject\": {\n            \"type\": \"string\"\n          },\n          \"preheader\": {\n            \"type\": \"string\"\n          },\n          \"kind\": {\n            \"type\": \"string\",\n            \"enum\": [\n              \"sport\",\n              \"casino\",\n              \"vip\",\n              \"promo\"\n            ]\n          },\n          \"league\": {\n            \"type\": \"string\"\n          },\n          \"leagueId\": {\n            \"type\": \"string\"\n          },\n          \"heroImage\": {\n            \"type\": \"string\"\n          },\n          \"matches\": {\n            \"type\": \"array\",\n            \"items\": {\n              \"type\": \"object\",\n              \"properties\": {\n                \"date\": {\n                  \"type\": \"string\"\n                },\n                \"team1\": {\n                  \"type\": \"string\"\n                },\n                \"team2\": {\n                  \"type\": \"string\"\n                },\n                \"players\": {\n                  \"type\": \"string\"\n                },\n                \"odds\": {\n                  \"type\": \"string\"\n                },\n                \"pick\": {\n                  \"type\": \"string\"\n                },\n                \"coef\": {\n                  \"type\": \"string\"\n                },\n                \"team1Id\": {\n                  \"type\": \"string\"\n                },\n                \"team2Id\": {\n                  \"type\": \"string\"\n                }\n              },\n              \"required\": [\n                \"date\",\n                \"team1\",\n                \"team2\",\n                \"players\"\n              ],\n              \"additionalProperties\": false\n            }\n          },\n          \"sections\": {\n            \"type\": \"array\",\n            \"items\": {\n              \"type\": \"object\",\n              \"properties\": {\n                \"k\": {\n                  \"type\": \"string\",\n                  \"enum\": [\n                    \"top\",\n                    \"offer\",\n                    \"text\",\n                    \"button\",\n                    \"steps\",\n                    \"timer\",\n                    \"note\",\n                    \"cards\",\n                    \"slots\",\n                    \"facts\"\n                  ]\n                },\n                \"title\": {\n                  \"type\": \"string\"\n                },\n                \"lines\": {\n                  \"type\": \"array\",\n                  \"items\": {\n                    \"type\": \"string\"\n                  }\n                },\n                \"paras\": {\n                  \"type\": \"array\",\n                  \"items\": {\n                    \"type\": \"string\"\n                  }\n                },\n                \"text\": {\n                  \"type\": \"string\"\n                },\n                \"link\": {\n                  \"type\": \"string\"\n                },\n                \"steps\": {\n                  \"type\": \"array\",\n                  \"items\": {\n                    \"type\": \"string\"\n                  }\n                },\n                \"until\": {\n                  \"type\": \"string\"\n                },\n                \"note\": {\n                  \"type\": \"string\"\n                },\n                \"provider\": {\n                  \"type\": \"string\"\n                },\n                \"cards\": {\n                  \"type\": \"array\",\n                  \"items\": {\n                    \"type\": \"object\",\n                    \"properties\": {\n                      \"title\": {\n                        \"type\": \"string\"\n                      },\n                      \"big\": {\n                        \"type\": \"string\"\n                      },\n                      \"sub\": {\n                        \"type\": \"string\"\n                      },\n                      \"text\": {\n                        \"type\": \"string\"\n                      }\n                    },\n                    \"required\": [\n                      \"title\",\n                      \"big\",\n                      \"sub\",\n                      \"text\"\n                    ],\n                    \"additionalProperties\": false\n                  }\n                },\n                \"details\": {\n                  \"type\": \"boolean\"\n                },\n                \"rows\": {\n                  \"type\": \"array\",\n                  \"items\": {\n                    \"type\": \"object\",\n                    \"properties\": {\n                      \"t\": {\n                        \"type\": \"string\",\n                        \"enum\": [\n                          \"stat\",\n                          \"form\",\n                          \"h2h\",\n                          \"text\",\n                          \"fact\"\n                        ]\n                      },\n                      \"label\": {\n                        \"type\": \"string\"\n                      },\n                      \"l\": {\n                        \"type\": \"string\"\n                      },\n                      \"ls\": {\n                        \"type\": \"string\"\n                      },\n                      \"r\": {\n                        \"type\": \"string\"\n                      },\n                      \"rs\": {\n                        \"type\": \"string\"\n                      },\n                      \"sub\": {\n                        \"type\": \"string\"\n                      },\n                      \"title\": {\n                        \"type\": \"string\"\n                      },\n                      \"vals\": {\n                        \"type\": \"string\"\n                      },\n                      \"labels\": {\n                        \"type\": \"string\"\n                      },\n                      \"text\": {\n                        \"type\": \"string\"\n                      },\n                      \"lead\": {\n                        \"type\": \"string\"\n                      }\n                    },\n                    \"required\": [\n                      \"t\",\n                      \"label\",\n                      \"l\",\n                      \"ls\",\n                      \"r\",\n                      \"rs\",\n                      \"sub\",\n                      \"title\",\n                      \"vals\",\n                      \"labels\",\n                      \"text\",\n                      \"lead\"\n                    ],\n                    \"additionalProperties\": false\n                  }\n                }\n              },\n              \"required\": [\n                \"k\",\n                \"title\",\n                \"lines\",\n                \"paras\",\n                \"text\",\n                \"link\",\n                \"steps\",\n                \"until\",\n                \"note\",\n                \"provider\",\n                \"cards\",\n                \"details\",\n                \"rows\"\n              ],\n              \"additionalProperties\": false\n            }\n          },\n          \"signature\": {\n            \"type\": [\n              \"object\",\n              \"null\"\n            ],\n            \"properties\": {\n              \"manager\": {\n                \"type\": \"string\"\n              },\n              \"email\": {\n                \"type\": \"string\"\n              },\n              \"hours\": {\n                \"type\": \"string\"\n              }\n            },\n            \"required\": [\n              \"manager\",\n              \"email\",\n              \"hours\"\n            ],\n            \"additionalProperties\": false\n          },\n          \"notes\": {\n            \"type\": \"array\",\n            \"items\": {\n              \"type\": \"string\"\n            }\n          }\n        },\n        \"required\": [\n          \"client\",\n          \"title\",\n          \"subject\",\n          \"preheader\",\n          \"kind\",\n          \"league\",\n          \"matches\",\n          \"sections\",\n          \"signature\",\n          \"notes\"\n        ],\n        \"additionalProperties\": false\n      }\n    }\n  },\n  \"usage\": {\n    \"include\": true\n  }\n};\n// REQUEST>>\nconst request = JSON.parse(JSON.stringify(REQUEST_TEMPLATE));\nrequest.messages[request.messages.length - 1].content = text;\nreturn [{ json: { kind: 'ok', request } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "id": "ffb0cd68-7ab4-4e63-92aa-e91818c41f22",
+      "name": "Подготовка",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fe7e526c-b71b-4145-8598-07ebc8a5d2b2",
+              "leftValue": "={{ $json.kind }}",
+              "rightValue": "error",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        440,
+        300
+      ],
+      "id": "29e49c06-9ecd-4f2b-b160-0c010ca18a38",
+      "name": "Ошибка в запросе?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Title",
+              "value": "Clickable Mail"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        400
+      ],
+      "id": "38519825-a1a5-49aa-8a31-10adbf0dc85e",
+      "name": "OpenRouter",
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "OpenRouter"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ответ OpenRouter → { ok: true, brief, model, usage } или { ok: false, error } с понятной причиной.\n// brief проверяет приложение (validateBrief): здесь — только «это JSON-объект».\nconst r = $json || {};\nconst fail = error => [{ json: { ok: false, error } }];\nif (r.error) {\n  const e = r.error;\n  const msg = typeof e === 'string' ? e : (e.message || 'неизвестная ошибка');\n  const raw = e && e.metadata && e.metadata.raw ? ' — ' + String(e.metadata.raw).slice(0, 300) : '';\n  return fail('OpenRouter: ' + msg + raw);\n}\nconst choice = (r.choices || [])[0] || {};\nconst content = choice.message && choice.message.content;\nif (typeof content !== 'string' || !content.trim()) return fail('Модель не вернула ответ');\nif (choice.finish_reason === 'length') return fail('Ответ модели обрезан: ТЗ слишком большое для одного ответа');\nlet brief;\ntry { brief = JSON.parse(content.replace(/^\\s*```(?:json)?\\s*|\\s*```\\s*$/g, '')); } catch (e) { return fail('Модель вернула не JSON'); }\nif (!brief || typeof brief !== 'object' || Array.isArray(brief)) return fail('Модель вернула не JSON-объект');\nreturn [{ json: { ok: true, brief, model: r.model || '', usage: r.usage || {} } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        400
+      ],
+      "id": "a9835985-ba55-42bf-80ba-c6729ddef228",
+      "name": "Разбор ответа",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        400
+      ],
+      "id": "a59cf71a-456d-4ab5-8095-59b42dede49f",
+      "name": "Отправить ответ"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ошибка любой ступени → понятный ответ приложению вместо обрыва соединения.\nconst e = $json.error;\nconst error = typeof e === 'string' ? e : (e && e.message) || 'Неизвестная ошибка n8n';\nreturn [{ json: { ok: false, error } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        700
+      ],
+      "id": "0cb0908a-4838-425c-88ef-284522cc3126",
+      "name": "Ошибка"
+    },
+    {
+      "parameters": {
+        "respondWith": "firstIncomingItem",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        700
+      ],
+      "id": "a2017648-8d5a-40d7-90e7-7a64b7ed35b3",
+      "name": "Отправить ошибку"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Подготовка",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Подготовка": {
+      "main": [
+        [
+          {
+            "node": "Ошибка в запросе?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ошибка",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ошибка в запросе?": {
+      "main": [
+        [
+          {
+            "node": "Ошибка",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OpenRouter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter": {
+      "main": [
+        [
+          {
+            "node": "Разбор ответа",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Разбор ответа": {
+      "main": [
+        [
+          {
+            "node": "Отправить ответ",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ошибка",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ошибка": {
+      "main": [
+        [
+          {
+            "node": "Отправить ошибку",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "tags": []
+}

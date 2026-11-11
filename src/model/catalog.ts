@@ -61,7 +61,7 @@ export const catalogOf = (type: BlockType) => CATALOG.find((c) => c.type === typ
 
 /** Какие поля нужны конкретному варианту (нет записи — все поля типа). */
 const VARIANT_FIELDS: Partial<Record<BlockType, string[][]>> = {
-  text: [['title', 'text'], ['title', 'text'], ['title', 'text'], ['note', 'text'], ['kicker', 'offer']],
+  text: [['title', 'text'], ['title', 'text'], ['title', 'text'], ['note', 'text'], ['kicker', 'offer', 'tagline']],
   bullets: [
     ['items'], ['items'], ['items'], ['steps'],
     ['image', 'alt', 'title', 'sub', 'text'], ['image', 'alt', 'title', 'sub', 'text'],
@@ -147,6 +147,7 @@ export const FIELDS: Record<BlockType, FieldDef[]> = {
     { key: 'title', label: 'Заголовок', kind: 'text', def: FISH_GREETING },
     { key: 'kicker', label: 'Подзаголовок', kind: 'text', def: 'Новый сезон. Новый бонус' },
     { key: 'offer', label: 'Оффер', kind: 'text', def: '50% Free Bet до 200 EUR' },
+    { key: 'tagline', label: 'Под оффером', kind: 'text', def: '' },
     { key: 'note', label: 'Начало примечания', kind: 'text', def: 'Обратите внимание!' },
     { key: 'text', label: 'Абзацы', kind: 'paragraphs', def: FISH_TEXT },
   ],

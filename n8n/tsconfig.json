@@ -2,7 +2,7 @@
   "extends": "../tsconfig.json",
   "compilerOptions": {
     "types": ["node"],
-    "paths": {}
+    "paths": { "@/*": ["../src/*"] }
   },
   "include": ["**/*.ts", "../vitest.config.ts"],
   "exclude": ["out"]
