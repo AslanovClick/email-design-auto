@@ -49,9 +49,9 @@ test('ответы — JSON первого элемента с заголовк�
   }
 });
 
-test('FTP: путь как у плагина, креденшл, ошибки не роняют цепочку', () => {
+test('FTP: путь /sv/public_html/email_images, креденшл, ошибки не роняют цепочку', () => {
   const f = node('FTP');
-  expect(f.parameters.path).toBe('=/public_html/email_images/{{ $json.ftpName }}');
+  expect(f.parameters.path).toBe('=/sv/public_html/email_images/{{ $json.ftpName }}');
   expect(f.credentials).toEqual({ ftp: { id: 'k2Er5gljEUnhmCRt', name: 'FTP account' } });
   expect(f.onError).toBe('continueRegularOutput');
 });

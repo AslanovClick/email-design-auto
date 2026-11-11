@@ -103,7 +103,7 @@
     {
       "parameters": {
         "operation": "upload",
-        "path": "=/public_html/email_images/{{ $json.ftpName }}",
+        "path": "=/sv/public_html/email_images/{{ $json.ftpName }}",
         "options": {}
       },
       "type": "n8n-nodes-base.ftp",
